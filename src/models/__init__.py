@@ -1,0 +1,1 @@
+"""Model layer: modality-adaptive encoder and projection head."""

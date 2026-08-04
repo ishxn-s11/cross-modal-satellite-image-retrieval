@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cross-Modal Satellite Image Retrieval</title>
+<style>
+  :root {
+    --bg:#0f1420; --card:#171e2e; --line:#2a3550; --fg:#e6edf7; --mut:#8b97ad;
+    --acc:#4f9cf9; --ok:#3ecf8e; --bad:#f2637b; --chip:#22304a;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:ui-sans-serif, system-ui, "Segoe UI", sans-serif; background:var(--bg); color:var(--fg); }
+  header { padding:14px 24px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  header h1 { font-size:17px; margin:0; letter-spacing:.3px; }
+  header .sub { color:var(--mut); font-size:12.5px; }
+  header .right { margin-left:auto; display:flex; align-items:center; gap:10px; }
+  .pill { font-size:11px; padding:4px 9px; border-radius:999px; border:1px solid var(--line); color:var(--mut); background:#0d1320; }
+  .pill b { color:var(--fg); }
+  .pill.ok { border-color:rgba(62,207,142,.4); color:var(--ok); }
+  nav.tabs { display:flex; gap:4px; padding:12px 24px 0; border-bottom:1px solid var(--line); }
+  nav.tabs button {
+    background:transparent; color:var(--mut); border:1px solid transparent; border-bottom:none;
+    padding:8px 16px; border-radius:9px 9px 0 0; font-size:13px; cursor:pointer; font-weight:600;
+  }
+  nav.tabs button.active { color:var(--fg); background:var(--card); border-color:var(--line); }
+  main { padding:22px 24px; max-width:1240px; margin:0 auto; }
+  section.tab { display:none; }
+  section.tab.active { display:block; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:18px; }
+  label { display:block; color:var(--mut); font-size:11px; margin:12px 0 6px; text-transform:uppercase; letter-spacing:.6px; }
+  select, input[type=number], input[type=text] {
+    width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--line);
+    background:#0d1320; color:var(--fg); font-size:14px;
+  }
+  input[type=file] { font-size:13px; }
+  button {
+    margin-top:16px; padding:10px 14px; border:0; border-radius:9px; background:var(--acc);
+    color:#fff; font-size:13.5px; font-weight:600; cursor:pointer;
+  }
+  button:disabled { opacity:.5; cursor:wait; }
+  button.ghost { background:transparent; border:1px solid var(--line); color:var(--mut); }
+  .row { display:flex; align-items:center; gap:10px; }
+  .flex { display:flex; gap:10px; align-items:center; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(124px,1fr)); gap:12px; }
+  .imgbox { border:1px solid var(--line); border-radius:10px; overflow:hidden; text-align:center; background:#0d1320; }
+  .imgbox img { width:100%; height:124px; object-fit:cover; display:block; }
+  .imgbox .cap { padding:6px 4px; font-size:10.5px; color:var(--mut); line-height:1.35; }
+  .imgbox .ok { color:var(--ok); font-weight:700; }
+  .imgbox .bad { color:var(--bad); font-weight:700; }
+  .query { border-color:var(--acc); box-shadow:0 0 0 1px var(--acc); }
+  .stat { font-size:12.5px; color:var(--mut); margin-top:12px; }
+  .stat b { color:var(--fg); }
+  .thumb { width:64px; height:64px; object-fit:cover; border-radius:8px; border:1px solid var(--line); }
+  .bigthumb { width:96px; height:96px; object-fit:cover; border-radius:8px; border:1px solid var(--acc); }
+  h2 { font-size:13px; margin:0 0 12px; color:var(--mut); font-weight:600; text-transform:uppercase; letter-spacing:.6px; }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  th, td { text-align:left; padding:7px 10px; border-bottom:1px solid var(--line); }
+  th { color:var(--mut); font-size:11px; text-transform:uppercase; letter-spacing:.4px; }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .kpi { display:flex; gap:14px; flex-wrap:wrap; margin-bottom:16px; }
+  .kpi .box { flex:1; min-width:150px; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; }
+  .kpi .box .v { font-size:22px; font-weight:700; color:var(--acc); }
+  .kpi .box .l { font-size:11px; color:var(--mut); text-transform:uppercase; letter-spacing:.5px; margin-top:4px; }
+  .drop { border:2px dashed var(--line); border-radius:12px; padding:28px; text-align:center; color:var(--mut); font-size:13px; cursor:pointer; }
+  .drop.drag { border-color:var(--acc); color:var(--fg); background:#101828; }
+  .pager { display:flex; align-items:center; gap:10px; justify-content:center; margin-top:14px; }
+  .pager button { margin-top:0; padding:6px 12px; }
+  .muted { color:var(--mut); }
+  .tag { display:inline-block; font-size:10px; padding:2px 7px; border-radius:999px; background:var(--chip); margin-left:6px; vertical-align:middle; }
+  .err { color:var(--bad); font-size:13px; }
+  .toast {
+    position:fixed; right:18px; bottom:18px; background:#0d1320; color:var(--fg);
+    border:1px solid var(--line); padding:11px 15px; border-radius:10px; font-size:13px;
+    opacity:0; transition:opacity .25s; pointer-events:none; z-index:50; max-width:320px;
+  }
+  .toast.show { opacity:1; }
+  .grid .query img { border-bottom:2px solid var(--acc); }
+</style>
+</head>
+<body>
+<header>
+  <h1>🛰️ Cross-Modal Satellite Image Retrieval</h1>
+  <span class="sub">retrieval over a persisted FAISS database · optical · multispectral · SAR</span>
+  <div class="right">
+    <span class="pill">config <b id="pill-hash">—</b></span>
+    <span class="pill">gallery <b id="pill-gallery">—</b></span>
+    <span class="pill" id="pill-cache">cache <b>—</b></span>
+    <button class="ghost" id="btn-clear" style="margin-top:0;padding:6px 12px">Clear cache</button>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button class="active" data-tab="retrieve">Retrieve</button>
+  <button data-tab="browse">Browse DB</button>
+  <button data-tab="upload">Upload</button>
+  <button data-tab="metrics">Metrics</button>
+  <button data-tab="history">History</button>
+</nav>
+
+<main>
+  <!-- ============ RETRIEVE ============ -->
+  <section class="tab active" id="tab-retrieve">
+    <div class="card" style="margin-bottom:16px">
+      <h2>Query</h2>
+      <div class="row" id="qpreview"></div>
+      <div class="flex" style="margin-top:12px">
+        <div style="flex:1">
+          <label>Query image (dataset id)</label>
+          <div class="flex">
+            <input type="number" id="qid" value="0" min="0" />
+            <button type="button" id="pick" style="margin-top:0;width:auto;padding:8px 12px">Preview</button>
+            <button type="button" id="surprise" class="ghost" style="margin-top:0;width:auto;padding:8px 12px">🎲 random</button>
+          </div>
+        </div>
+        <div style="flex:1">
+          <label>Query modality</label>
+          <select id="qm"><option>optical</option><option>multispectral</option><option>sar</option></select>
+        </div>
+        <div style="flex:1">
+          <label>Gallery modality</label>
+          <select id="gm"><option>optical</option><option>multispectral</option><option>sar</option></select>
+        </div>
+        <div style="flex:1">
+          <label>K (top results)</label>
+          <select id="k"><option value="5">5</option><option value="10">10</option><option value="3">3</option></select>
+        </div>
+      </div>
+      <button id="run">Retrieve</button>
+      <div class="stat" id="stat"></div>
+    </div>
+    <div class="card">
+      <h2>Retrieved images</h2>
+      <div class="grid" id="cols"><span class="muted">Set a query and press Retrieve.</span></div>
+    </div>
+  </section>
+
+  <!-- ============ BROWSE ============ -->
+  <section class="tab" id="tab-browse">
+    <div class="card">
+      <div class="flex" style="justify-content:space-between">
+        <h2 style="margin-bottom:0">Browse dataset</h2>
+        <div style="display:flex;gap:10px;align-items:end">
+          <div>
+            <label>Modality</label>
+            <select id="b-mod"><option>optical</option><option>multispectral</option><option>sar</option></select>
+          </div>
+          <div>
+            <label>Per page</label>
+            <select id="b-limit"><option value="12">12</option><option value="24">24</option><option value="48">48</option></select>
+          </div>
+        </div>
+      </div>
+      <div class="grid" id="b-grid" style="margin-top:14px"><span class="muted">Loading…</span></div>
+      <div class="pager">
+        <button id="b-prev" class="ghost">← Prev</button>
+        <span class="muted" id="b-info">0–0 of 0</span>
+        <button id="b-next" class="ghost">Next →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ UPLOAD ============ -->
+  <section class="tab" id="tab-upload">
+    <div class="card" style="margin-bottom:16px">
+      <h2>Query by image upload</h2>
+      <div id="drop" class="drop">Drop a satellite image here, or click to choose.</div>
+      <input type="file" id="up-file" accept="image/*" style="display:none" />
+      <div class="row" id="up-preview" style="margin-top:12px"></div>
+      <div class="flex" style="margin-top:12px">
+        <div style="flex:1">
+          <label>Query modality</label>
+          <select id="up-qm"><option>optical</option><option>multispectral</option><option>sar</option></select>
+        </div>
+        <div style="flex:1">
+          <label>Gallery modality</label>
+          <select id="up-gm"><option>optical</option><option>multispectral</option><option>sar</option></select>
+        </div>
+        <div style="flex:1">
+          <label>K</label>
+          <select id="up-k"><option value="5">5</option><option value="10">10</option></select>
+        </div>
+      </div>
+      <button id="up-run" disabled>Retrieve</button>
+      <div class="stat" id="up-stat"></div>
+    </div>
+    <div class="card">
+      <h2>Retrieved images</h2>
+      <div class="grid" id="up-cols"><span class="muted">Upload an image to search the gallery.</span></div>
+    </div>
+  </section>
+
+  <!-- ============ METRICS ============ -->
+  <section class="tab" id="tab-metrics">
+    <div class="kpi" id="m-kpis"></div>
+    <div class="card">
+      <h2>Per-pair retrieval metrics (F1@K / P@K / R@K)</h2>
+      <div id="m-table"><span class="muted">Loading…</span></div>
+    </div>
+  </section>
+
+  <!-- ============ HISTORY ============ -->
+  <section class="tab" id="tab-history">
+    <div class="kpi" id="h-kpis"></div>
+    <div class="card">
+      <h2>Recent retrievals (from the SQLite database)</h2>
+      <div id="h-table"><span class="muted">Loading…</span></div>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const MODS = ["optical", "multispectral", "sar"];
+
+// ---------- tiny helpers ----------
+function toast(msg) {
+  const t = $("toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 3200);
+}
+async function api(path, opts) {
+  const res = await fetch(path, opts);
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  return res.json();
+}
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function errBox(e) { return `<span class="err">Error: ${esc(e.message)}</span>`; }
+
+// ---------- tabs ----------
+document.querySelectorAll("nav.tabs button").forEach(btn => {
+  btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+});
+function switchTab(name) {
+  document.querySelectorAll("nav.tabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
+  document.querySelectorAll("section.tab").forEach(s => s.classList.toggle("active", s.id === `tab-${name}`));
+  if (name === "browse") loadBrowse();
+  if (name === "metrics") loadMetrics();
+  if (name === "history") loadHistory();
+}
+
+// ---------- header status ----------
+async function loadStatus() {
+  try {
+    const s = await api("/api/status");
+    $("pill-hash").textContent = s.config_hash.slice(0, 8);
+    $("pill-gallery").textContent = s.gallery_size.toLocaleString();
+    const emb = Object.values(s.cache.embeddings).every(Boolean);
+    const idx = Object.values(s.cache.faiss).every(Boolean);
+    const pill = $("pill-cache");
+    pill.className = "pill" + ((emb && idx) ? " ok" : "");
+    pill.innerHTML = `cache <b>${emb && idx ? "warm" : "cold"}</b> · ${s.database.images.toLocaleString()} imgs · ${s.database.queries_logged} queries`;
+  } catch (e) { /* non-fatal */ }
+}
+
+// ---------- retrieve ----------
+async function preview() {
+  const id = parseInt($("qid").value || "0");
+  try {
+    const data = await api("/api/retrieve", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({query_id: id, query_modality: $("qm").value, gallery_modality: $("qm").value, k: 1})
+    });
+    $("qpreview").innerHTML =
+      `<img class="bigthumb" src="${data.query.image}" />` +
+      `<div>#${data.query.id}<br/><span class="ok">${esc(data.query["class"])}</span><br/><span class="muted">${esc(data.query.modality)}</span></div>`;
+  } catch (e) { $("qpreview").innerHTML = errBox(e); }
+}
+async function pickRandom() {
+  const d = await api("/api/random_query?limit=12");
+  const ids = d.query_ids;
+  $("qid").value = ids[Math.floor(Math.random() * ids.length)];
+  await preview();
+}
+
+async function run() {
+  const btn = $("run"); btn.disabled = true;
+  const id = parseInt($("qid").value || "0");
+  try {
+    const data = await api("/api/retrieve", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({query_id: id, query_modality: $("qm").value, gallery_modality: $("gm").value, k: parseInt($("k").value)})
+    });
+    let hits = 0;
+    let html = `<div class="imgbox query"><img src="${data.query.image}"/><div class="cap">QUERY ${esc(data.query.modality.toUpperCase())}<br/><span class="ok">${esc(data.query["class"])}</span></div></div>`;
+    for (const r of data.retrieved) {
+      if (r.relevant) hits++;
+      html += `<div class="imgbox"><img src="${r.image}"/><div class="cap">#${r.rank} ${esc(r["class"])}<br/><span class="${r.relevant ? "ok" : "bad"}">${r.relevant ? "✓ relevant" : "✗ miss"}</span></div></div>`;
+    }
+    $("cols").innerHTML = html;
+    $("stat").innerHTML =
+      `Gallery <b>${esc($("gm").value)}</b> · query <b>#${data.query.id} (${esc(data.query["class"])})</b> · ` +
+      `retrieval time <b>${data.avg_time_ms.toFixed(3)} ms</b> · relevance <b>${hits}/${data.retrieved.length}</b>`;
+  } catch (e) { $("cols").innerHTML = errBox(e); }
+  btn.disabled = false;
+}
+
+// ---------- browse ----------
+let bStart = 0;
+async function loadBrowse() {
+  const mod = $("b-mod").value, limit = parseInt($("b-limit").value);
+  try {
+    const d = await api(`/api/browse?modality=${mod}&start=${bStart}&limit=${limit}`);
+    let html = "";
+    for (const it of d.items) {
+      html += `<div class="imgbox"><img src="${it.image}"/><div class="cap">#${it.id} ${esc(it["class"])}</div></div>`;
+    }
+    $("b-grid").innerHTML = html || `<span class="muted">No items.</span>`;
+    const lo = bStart, hi = Math.min(bStart + limit, d.total) - 1;
+    $("b-info").textContent = `${lo}–${hi} of ${d.total.toLocaleString()}`;
+    $("b-prev").disabled = bStart <= 0;
+    $("b-next").disabled = hi >= d.total - 1;
+  } catch (e) { $("b-grid").innerHTML = errBox(e); }
+}
+$("b-mod").addEventListener("change", () => { bStart = 0; loadBrowse(); });
+$("b-limit").addEventListener("change", () => { bStart = 0; loadBrowse(); });
+$("b-prev").addEventListener("click", () => { bStart = Math.max(0, bStart - parseInt($("b-limit").value)); loadBrowse(); });
+$("b-next").addEventListener("click", () => { bStart += parseInt($("b-limit").value); loadBrowse(); });
+
+// ---------- upload ----------
+let upFile = null;
+const drop = $("drop");
+drop.addEventListener("click", () => $("up-file").click());
+drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("drag"); });
+drop.addEventListener("dragleave", () => drop.classList.remove("drag"));
+drop.addEventListener("drop", e => {
+  e.preventDefault(); drop.classList.remove("drag");
+  if (e.dataTransfer.files.length) setUploadFile(e.dataTransfer.files[0]);
+});
+$("up-file").addEventListener("change", e => { if (e.target.files.length) setUploadFile(e.target.files[0]); });
+function setUploadFile(f) {
+  upFile = f;
+  $("drop").textContent = `Selected: ${f.name}`;
+  $("up-preview").innerHTML = `<img class="bigthumb" src="${URL.createObjectURL(f)}" />`;
+  $("up-run").disabled = false;
+}
+async function runUpload() {
+  if (!upFile) { toast("Choose an image first"); return; }
+  const btn = $("up-run"); btn.disabled = true;
+  const fd = new FormData();
+  fd.append("file", upFile);
+  fd.append("query_modality", $("up-qm").value);
+  fd.append("gallery_modality", $("up-gm").value);
+  fd.append("k", $("up-k").value);
+  try {
+    const d = await api("/api/retrieve_upload", { method: "POST", body: fd });
+    let html = "";
+    for (const r of d.retrieved) {
+      html += `<div class="imgbox"><img src="${r.image}"/><div class="cap">#${r.rank} ${esc(r["class"])}<br/>score ${r.score}</div></div>`;
+    }
+    $("up-cols").innerHTML = html || `<span class="muted">No results.</span>`;
+    $("up-stat").innerHTML = `Gallery <b>${esc(d.gallery_modality)}</b> · retrieval time <b>${d.avg_time_ms.toFixed(3)} ms</b>`;
+  } catch (e) { $("up-cols").innerHTML = errBox(e); }
+  btn.disabled = false;
+}
+
+// ---------- metrics ----------
+async function loadMetrics() {
+  try {
+    const d = await api("/api/eval");
+    const s = d.summary;
+    if (!s) { $("m-kpis").innerHTML = `<span class="muted">No evaluation report found. Run <code>python run_pipeline.py</code> first.</span>`; return; }
+    const kpis = [
+      ["Same-modal F1@5", s.same_modal_avg["f1@5"]], ["Same-modal F1@10", s.same_modal_avg["f1@10"]],
+      ["Cross-modal F1@5", s.cross_modal_avg["f1@5"]], ["Cross-modal F1@10", s.cross_modal_avg["f1@10"]],
+      ["Weighted F1@5", s.weighted_avg["f1@5"]], ["Weighted F1@10", s.weighted_avg["f1@10"]],
+      ["Avg retrieval time", s.avg_retrieval_time_ms],
+    ];
+    $("m-kpis").innerHTML = kpis.map(([l, v]) =>
+      `<div class="box"><div class="v">${(v * 100).toFixed(1)}${l.includes("time") ? " ms" : "%"}</div><div class="l">${l}</div></div>`).join("");
+    const rows = (d.rows || []).slice().sort((a, b) => b["f1@k"] - a["f1@k"]);
+    let t = `<table><thead><tr><th>Pair</th><th>Kind</th><th>K</th><th class="num">F1@K</th><th class="num">P@K</th><th class="num">R@K</th><th class="num">Time (ms)</th><th class="num">Queries</th></tr></thead><tbody>`;
+    for (const r of rows) {
+      const kind = r.kind === "same" ? `<span class="tag ok">same</span>` : `<span class="tag bad">cross</span>`;
+      t += `<tr><td>${esc(r.pair)}</td><td>${kind}</td><td>${r.k}</td>
+        <td class="num">${(r["f1@k"] * 100).toFixed(1)}%</td><td class="num">${(r["precision@k"] * 100).toFixed(1)}%</td>
+        <td class="num">${(r["recall@k"] * 100).toFixed(1)}%</td><td class="num">${r.avg_retrieval_time_ms.toFixed(3)}</td><td class="num">${r.n_queries}</td></tr>`;
+    }
+    $("m-table").innerHTML = t + "</tbody></table>";
+  } catch (e) { $("m-table").innerHTML = errBox(e); }
+}
+
+// ---------- history ----------
+async function loadHistory() {
+  try {
+    const d = await api("/api/history");
+    $("h-kpis").innerHTML = [
+      ["Total queries logged", d.stats.total_queries], ["Avg query time", d.stats.avg_time_ms ? d.stats.avg_time_ms.toFixed(3) + " ms" : "—"]
+    ].map(([l, v]) => `<div class="box"><div class="v">${v}</div><div class="l">${l}</div></div>`).join("");
+    const items = d.items || [];
+    if (!items.length) { $("h-table").innerHTML = `<span class="muted">No retrievals recorded yet.</span>`; return; }
+    let t = `<table><thead><tr><th>When</th><th>Query</th><th>→ Gallery</th><th>K</th><th class="num">Avg time (ms)</th><th class="num">Hits</th></tr></thead><tbody>`;
+    for (const r of items) {
+      t += `<tr><td>${esc(r.created_at)}</td><td>#${r.query_id} ${esc(r.query_mod)}</td><td>${esc(r.gallery_mod)}</td><td>${r.k}</td><td class="num">${r.avg_time_ms.toFixed(3)}</td><td class="num">${r.n_retrieved}</td></tr>`;
+    }
+    $("h-table").innerHTML = t + "</tbody></table>";
+  } catch (e) { $("h-table").innerHTML = errBox(e); }
+}
+
+// ---------- cache clear ----------
+$("btn-clear").addEventListener("click", async () => {
+  if (!confirm("Clear cached embeddings + FAISS galleries on disk? Galleries will be rebuilt.")) return;
+  try {
+    const d = await api("/api/cache/clear", { method: "DELETE" });
+    toast(`Cache cleared (${d.removed_files} files), galleries rebuilt.`);
+    loadStatus();
+  } catch (e) { toast("Clear failed: " + e.message); }
+});
+
+// ---------- wire up ----------
+$("run").addEventListener("click", run);
+$("pick").addEventListener("click", preview);
+$("surprise").addEventListener("click", pickRandom);
+$("up-run").addEventListener("click", runUpload);
+$("qm").addEventListener("change", () => { if (!$("qm").value) return; });
+
+// go
+loadStatus();
+preview();
+</script>
+</body>
+</html>
