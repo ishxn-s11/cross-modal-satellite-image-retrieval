@@ -1,0 +1,4 @@
+# Optional web demo dependencies (pip install -r requirements-web.txt)
+fastapi>=0.104
+uvicorn[standard]>=0.24
+python-multipart>=0.0.6

@@ -1,0 +1,10 @@
+# Optional notebook dependencies (pip install -r requirements-notebooks.txt)
+jupyter>=1.0
+ipykernel>=6.25
+notebook>=7.0
+seaborn>=0.12
+umap-learn>=0.5
+
+# The notebooks import the project's own src/ package, which is already
+# covered by requirements.txt (torch, torchvision, faiss-cpu, pandas, pyarrow,
+# scikit-learn, matplotlib).
