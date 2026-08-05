@@ -1,0 +1,46 @@
+INFO:     Started server process [23500]
+INFO:     Waiting for application startup.
+2026-08-04 00:29:44 | [data] source=synthetic N=2000 classes=10 modalities=['optical', 'multispectral', 'sar']
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8500 (Press CTRL+C to quit)
+INFO:     127.0.0.1:59651 - "GET /api/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49185 - "GET /api/info HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49186 - "GET /api/browse?modality=optical&start=0&limit=2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55301 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61030 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:55301 - "POST /api/retrieve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64221 - "POST /api/retrieve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51472 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51472 - "POST /api/retrieve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63788 - "POST /api/retrieve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56276 - "POST /api/retrieve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56276 - "POST /api/retrieve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56276 - "POST /api/retrieve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56276 - "POST /api/retrieve HTTP/1.1" 200 OK
+2026-08-04 23:09:53 | [db] embeddings 'optical': (6000, 128) cached
+2026-08-04 23:11:10 | [db] embeddings 'multispectral': (6000, 128) cached
+2026-08-04 23:12:01 | [db] embeddings 'sar': (6000, 128) cached
+2026-08-04 23:12:01 | [db] gallery 'optical': 3000 vectors ready
+2026-08-04 23:12:01 | [db] gallery 'multispectral': 3000 vectors ready
+2026-08-04 23:12:01 | [db] gallery 'sar': 3000 vectors ready
+2026-08-04 23:12:01 | [startup] ready (galleries={'optical': 3000, 'multispectral': 3000, 'sar': 3000})
+2026-08-04 23:22:07 | [db] embeddings 'optical': (6000, 128) cached
+2026-08-04 23:22:07 | [db] embeddings 'multispectral': (6000, 128) cached
+2026-08-04 23:22:07 | [db] embeddings 'sar': (6000, 128) cached
+2026-08-04 23:22:07 | [db] loading cached gallery 'optical'
+2026-08-04 23:22:07 | [db] gallery 'optical': 3000 vectors ready
+2026-08-04 23:22:07 | [db] loading cached gallery 'multispectral'
+2026-08-04 23:22:07 | [db] gallery 'multispectral': 3000 vectors ready
+2026-08-04 23:22:07 | [db] loading cached gallery 'sar'
+2026-08-04 23:22:07 | [db] gallery 'sar': 3000 vectors ready
+2026-08-04 23:22:07 | [startup] ready (galleries={'optical': 3000, 'multispectral': 3000, 'sar': 3000})
+2026-08-05 00:07:36 | [db] embeddings 'optical': (6000, 128) cached
+2026-08-05 00:07:36 | [db] embeddings 'multispectral': (6000, 128) cached
+2026-08-05 00:07:36 | [db] embeddings 'sar': (6000, 128) cached
+2026-08-05 00:07:36 | [db] loading cached gallery 'optical'
+2026-08-05 00:07:36 | [db] gallery 'optical': 3000 vectors ready
+2026-08-05 00:07:36 | [db] loading cached gallery 'multispectral'
+2026-08-05 00:07:36 | [db] gallery 'multispectral': 3000 vectors ready
+2026-08-05 00:07:36 | [db] loading cached gallery 'sar'
+2026-08-05 00:07:36 | [db] gallery 'sar': 3000 vectors ready
+2026-08-05 00:07:36 | [startup] ready (galleries={'optical': 3000, 'multispectral': 3000, 'sar': 3000})

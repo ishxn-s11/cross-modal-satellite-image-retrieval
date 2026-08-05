@@ -1,0 +1,26 @@
+INFO:     Started server process [20756]
+INFO:     Waiting for application startup.
+2026-08-05 00:07:35 | [data] source=synthetic N=6000 classes=10 modalities=['optical', 'multispectral', 'sar']
+2026-08-05 00:07:36 | [db] embeddings 'optical': (6000, 128) cached
+2026-08-05 00:07:36 | [db] embeddings 'multispectral': (6000, 128) cached
+2026-08-05 00:07:36 | [db] embeddings 'sar': (6000, 128) cached
+2026-08-05 00:07:36 | [db] loading cached gallery 'optical'
+2026-08-05 00:07:36 | [db] gallery 'optical': 3000 vectors ready
+2026-08-05 00:07:36 | [db] loading cached gallery 'multispectral'
+2026-08-05 00:07:36 | [db] gallery 'multispectral': 3000 vectors ready
+2026-08-05 00:07:36 | [db] loading cached gallery 'sar'
+2026-08-05 00:07:36 | [db] gallery 'sar': 3000 vectors ready
+2026-08-05 00:07:36 | [startup] ready (galleries={'optical': 3000, 'multispectral': 3000, 'sar': 3000})
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:52085 - "GET /api/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61968 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65358 - "GET /api/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61968 - "POST /api/retrieve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61968 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:60952 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60952 - "POST /api/retrieve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57985 - "GET /api/status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54117 - "GET /api/browse?modality=optical&start=0&limit=12 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54117 - "GET /api/eval HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54117 - "GET /api/history HTTP/1.1" 200 OK

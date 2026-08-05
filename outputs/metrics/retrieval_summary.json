@@ -1,0 +1,218 @@
+{
+  "summary": {
+    "same_modal_avg": {
+      "f1@5": 0.17166666666666666,
+      "f1@10": 0.2870333333333333
+    },
+    "cross_modal_avg": {
+      "f1@5": 0.11636666666666666,
+      "f1@10": 0.19594999999999999
+    },
+    "weighted_avg": {
+      "f1@5": 0.13848666666666665,
+      "f1@10": 0.2323833333333333
+    },
+    "avg_retrieval_time_ms": 0.056,
+    "n_rows": 18
+  },
+  "rows": [
+    {
+      "pair": "optical->optical",
+      "kind": "same",
+      "k": 5,
+      "n_queries": 45,
+      "precision@k": 0.5422,
+      "recall@k": 0.1078,
+      "f1@k": 0.1798,
+      "f1@k_std": 0.0984,
+      "avg_retrieval_time_ms": 0.2003
+    },
+    {
+      "pair": "optical->optical",
+      "kind": "same",
+      "k": 10,
+      "n_queries": 45,
+      "precision@k": 0.5267,
+      "recall@k": 0.2099,
+      "f1@k": 0.3,
+      "f1@k_std": 0.1537,
+      "avg_retrieval_time_ms": 0.2003
+    },
+    {
+      "pair": "multispectral->multispectral",
+      "kind": "same",
+      "k": 5,
+      "n_queries": 45,
+      "precision@k": 0.6622,
+      "recall@k": 0.1328,
+      "f1@k": 0.2211,
+      "f1@k_std": 0.0954,
+      "avg_retrieval_time_ms": 0.0479
+    },
+    {
+      "pair": "multispectral->multispectral",
+      "kind": "same",
+      "k": 10,
+      "n_queries": 45,
+      "precision@k": 0.6133,
+      "recall@k": 0.2453,
+      "f1@k": 0.3503,
+      "f1@k_std": 0.1526,
+      "avg_retrieval_time_ms": 0.0479
+    },
+    {
+      "pair": "sar->sar",
+      "kind": "same",
+      "k": 5,
+      "n_queries": 45,
+      "precision@k": 0.3422,
+      "recall@k": 0.0685,
+      "f1@k": 0.1141,
+      "f1@k_std": 0.0972,
+      "avg_retrieval_time_ms": 0.0359
+    },
+    {
+      "pair": "sar->sar",
+      "kind": "same",
+      "k": 10,
+      "n_queries": 45,
+      "precision@k": 0.3689,
+      "recall@k": 0.1476,
+      "f1@k": 0.2108,
+      "f1@k_std": 0.1384,
+      "avg_retrieval_time_ms": 0.0359
+    },
+    {
+      "pair": "optical->multispectral",
+      "kind": "cross",
+      "k": 5,
+      "n_queries": 45,
+      "precision@k": 0.5289,
+      "recall@k": 0.106,
+      "f1@k": 0.1765,
+      "f1@k_std": 0.1148,
+      "avg_retrieval_time_ms": 0.0275
+    },
+    {
+      "pair": "optical->multispectral",
+      "kind": "cross",
+      "k": 10,
+      "n_queries": 45,
+      "precision@k": 0.5267,
+      "recall@k": 0.2103,
+      "f1@k": 0.3005,
+      "f1@k_std": 0.1676,
+      "avg_retrieval_time_ms": 0.0275
+    },
+    {
+      "pair": "multispectral->optical",
+      "kind": "cross",
+      "k": 5,
+      "n_queries": 45,
+      "precision@k": 0.6089,
+      "recall@k": 0.1221,
+      "f1@k": 0.2033,
+      "f1@k_std": 0.1002,
+      "avg_retrieval_time_ms": 0.0279
+    },
+    {
+      "pair": "multispectral->optical",
+      "kind": "cross",
+      "k": 10,
+      "n_queries": 45,
+      "precision@k": 0.5822,
+      "recall@k": 0.2328,
+      "f1@k": 0.3324,
+      "f1@k_std": 0.1526,
+      "avg_retrieval_time_ms": 0.0279
+    },
+    {
+      "pair": "optical->sar",
+      "kind": "cross",
+      "k": 5,
+      "n_queries": 45,
+      "precision@k": 0.2533,
+      "recall@k": 0.0496,
+      "f1@k": 0.0829,
+      "f1@k_std": 0.0791,
+      "avg_retrieval_time_ms": 0.0285
+    },
+    {
+      "pair": "optical->sar",
+      "kind": "cross",
+      "k": 10,
+      "n_queries": 45,
+      "precision@k": 0.2511,
+      "recall@k": 0.099,
+      "f1@k": 0.1419,
+      "f1@k_std": 0.1133,
+      "avg_retrieval_time_ms": 0.0285
+    },
+    {
+      "pair": "sar->optical",
+      "kind": "cross",
+      "k": 5,
+      "n_queries": 45,
+      "precision@k": 0.2089,
+      "recall@k": 0.0412,
+      "f1@k": 0.0687,
+      "f1@k_std": 0.0993,
+      "avg_retrieval_time_ms": 0.0533
+    },
+    {
+      "pair": "sar->optical",
+      "kind": "cross",
+      "k": 10,
+      "n_queries": 45,
+      "precision@k": 0.1978,
+      "recall@k": 0.0781,
+      "f1@k": 0.1119,
+      "f1@k_std": 0.1407,
+      "avg_retrieval_time_ms": 0.0533
+    },
+    {
+      "pair": "multispectral->sar",
+      "kind": "cross",
+      "k": 5,
+      "n_queries": 45,
+      "precision@k": 0.2933,
+      "recall@k": 0.0574,
+      "f1@k": 0.096,
+      "f1@k_std": 0.0814,
+      "avg_retrieval_time_ms": 0.0341
+    },
+    {
+      "pair": "multispectral->sar",
+      "kind": "cross",
+      "k": 10,
+      "n_queries": 45,
+      "precision@k": 0.2733,
+      "recall@k": 0.1073,
+      "f1@k": 0.1541,
+      "f1@k_std": 0.1065,
+      "avg_retrieval_time_ms": 0.0341
+    },
+    {
+      "pair": "sar->multispectral",
+      "kind": "cross",
+      "k": 5,
+      "n_queries": 45,
+      "precision@k": 0.2133,
+      "recall@k": 0.0425,
+      "f1@k": 0.0708,
+      "f1@k_std": 0.0998,
+      "avg_retrieval_time_ms": 0.0486
+    },
+    {
+      "pair": "sar->multispectral",
+      "kind": "cross",
+      "k": 10,
+      "n_queries": 45,
+      "precision@k": 0.2356,
+      "recall@k": 0.0947,
+      "f1@k": 0.1349,
+      "f1@k_std": 0.1663,
+      "avg_retrieval_time_ms": 0.0486
+    }
+  ]
+}
