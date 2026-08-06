@@ -2,12 +2,30 @@
 # Override any value from the CLI:  python run_pipeline.py --config configs/default.yaml --set training.epochs=8
 
 dataset:
-  source: synthetic        # "synthetic" (self-contained) | "eurosat" (real RGB + simulated MS/SAR)
+  name: synthetic            # synthetic | eurosat | sen12ms | so2sat | bigearthnet_mm
+  source: synthetic          # legacy alias (kept for backward compatibility)
+  allow_fallback: true       # fall back to the self-contained synthetic dataset when a
+                             # real dataset is selected but its data is not on disk.
   root: data/raw
   num_patches: 6000
   image_size: 64
   seed: 42
-  eurosat_max_patches: 6000   # subsample used when source is "eurosat"
+  eurosat_max_patches: 6000   # subsample used when name/source is "eurosat"
+
+  # --- Real-dataset options (see docs/datasets.md for download instructions) ---
+  # sen12:                     # SEN12MS (SEN1-2), ~110 GB, user-downloaded
+  #   roi_csv: null            #   path to an ROI CSV, or auto-detected under ROIs/
+  #   patch_size: 64
+  #   max_scenes: 200          #   cap scenes read (quick smoke on real data)
+  #   ms_bands: [1,2,3,4,5,7,8,11]
+  #   sar_bands: [VV, VH]
+  #   class_names: null        #   optional 17-name legend override
+  # so2sat:                    # So2Sat LCZ42, ~55 GB, user-downloaded
+  #   h5_file: training.h5
+  #   max_patches: 5000
+  # bigearthnet_mm:            # BigEarthNet-MM, ~20 GB, user-downloaded
+  #   labels_csv: null
+  #   max_patches: 5000
 
 modalities:
   - optical

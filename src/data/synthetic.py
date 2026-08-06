@@ -31,6 +31,12 @@ from typing import Dict, List, Optional, Sequence, Tuple
 import numpy as np
 from PIL import Image
 
+from .interface import DatasetInterface, register_dataset
+from .metadata import (
+    metadata_from_arrays,
+    synthetic_date_strings,
+    synthetic_geo_dates,
+)
 from .modalities import MODALITIES, DEFAULT_MODALITIES, validate_modalities
 
 # ---------------------------------------------------------------------------
@@ -256,11 +262,17 @@ def generate_synthetic_dataset(
     image_size: int = 64,
     seed: int = 42,
     modalities: Sequence[str] = DEFAULT_MODALITIES,
+    with_geo: bool = True,
 ) -> Dict[str, np.ndarray]:
     """Generate `num_patches` paired multi-modal patches.
 
     Returns a dict {modality: ndarray of shape (N, bands, H, W), ...} plus a
     "labels" entry of shape (N,) with integer class ids. Per-class balanced.
+
+    When ``with_geo`` is true the dict also carries deterministic *synthetic*
+    scene placement arrays (``latitudes``, ``longitudes``, ``date_index``,
+    ``region_index``) used to demo geographic/temporal evaluation and the
+    interactive map without requiring any real imagery.
     """
     validate_modalities(list(modalities))
     rng = np.random.RandomState(seed)
@@ -287,6 +299,13 @@ def generate_synthetic_dataset(
             out["sar"][i] = _render_sar(label_map, image_size, rng)
         out["labels"][i] = int(dominants[i])
 
+    if with_geo:
+        lat, lon, date_idx, region_idx = synthetic_geo_dates(num_patches, seed=seed)
+        out["latitudes"] = lat
+        out["longitudes"] = lon
+        out["date_index"] = date_idx
+        out["region_index"] = region_idx
+
     return out
 
 
@@ -294,19 +313,25 @@ def generate_synthetic_dataset(
 # Disk cache
 # ---------------------------------------------------------------------------
 
+# Keys in the cached npz that are not per-modality image stacks.
+_NON_IMAGE_KEYS = {"labels", "latitudes", "longitudes", "date_index", "region_index"}
+
+
 def save_synthetic_dataset(
     path: str, dataset: Dict[str, np.ndarray], class_names: Sequence[str]
 ) -> str:
     os.makedirs(os.path.dirname(path), exist_ok=True)
     np.savez_compressed(path, **dataset)
-    first_key = next(k for k in dataset if k != "labels")
+    first_key = next(k for k in dataset if k not in _NON_IMAGE_KEYS and np.ndim(dataset[k]) == 4)
     image_size = int(dataset[first_key].shape[-1])
     meta_path = os.path.splitext(path)[0] + "_meta.json"
     with open(meta_path, "w", encoding="utf-8") as fh:
         json.dump(
             {
                 "class_names": list(class_names),
-                "modalities": sorted(k for k in dataset if k != "labels"),
+                "modalities": sorted(
+                    k for k in dataset if k not in _NON_IMAGE_KEYS and np.ndim(dataset[k]) == 4
+                ),
                 "num_patches": int(dataset["labels"].shape[0]),
                 "image_size": image_size,
             },
@@ -341,3 +366,68 @@ def load_or_generate_synthetic(
     data = generate_synthetic_dataset(num_patches, image_size, seed, modalities)
     save_synthetic_dataset(cache, data, CLASS_NAMES)
     return data, CLASS_NAMES
+
+
+# ---------------------------------------------------------------------------
+# DatasetInterface backend
+# ---------------------------------------------------------------------------
+
+# Per-modality sensor labels used in result cards / database rows. Everything is
+# *simulated* -- the synthetic generator renders sensor-like views of a scene.
+_SYNTH_MODALITY_SENSOR = {
+    "optical": "Sentinel-2 (simulated)",
+    "multispectral": "Sentinel-2 (simulated)",
+    "sar": "Sentinel-1 (simulated)",
+}
+
+
+@register_dataset("synthetic")
+class SyntheticDataset(DatasetInterface):
+    """Self-contained, fully offline synthetic multi-sensor dataset."""
+
+    name = "synthetic"
+    dataset_id = "synthetic"
+    sensor = "simulated"
+    downloads_required = False
+
+    @classmethod
+    def load(cls, cfg: Dict, logger=None) -> "SyntheticDataset":
+        ds_cfg = cfg.get("dataset", {})
+        modalities = list(cfg.get("modalities", DEFAULT_MODALITIES))
+        data, class_names = load_or_generate_synthetic(
+            root=ds_cfg.get("root", "data/raw"),
+            num_patches=int(ds_cfg.get("num_patches", 2000)),
+            image_size=int(ds_cfg.get("image_size", 64)),
+            seed=int(ds_cfg.get("seed", 42)),
+            modalities=modalities,
+        )
+        labels = np.asarray(data["labels"], dtype=np.int64)
+        patches = {m: data[m] for m in modalities}
+
+        # Optional deterministic synthetic scene placement.
+        lat = data.get("latitudes")
+        lon = data.get("longitudes")
+        date_idx = data.get("date_index")
+        region_idx = data.get("region_index")
+        dates = None
+        if date_idx is not None and region_idx is not None:
+            dates = synthetic_date_strings(
+                np.asarray(date_idx), np.asarray(region_idx)
+            )
+        metadata = metadata_from_arrays(
+            image_id=np.arange(len(labels)),
+            class_names=class_names,
+            labels=labels,
+            dataset="synthetic",
+            sensor=cls.sensor,
+            modality=None,
+            latitude=lat,
+            longitude=lon,
+            acquisition_date=dates,
+            resolution=10.0,  # nominal simulated GSD
+        )
+        ds = cls(patches, labels, class_names, metadata)
+        ds.modality_sensor = {
+            m: _SYNTH_MODALITY_SENSOR.get(m, cls.sensor) for m in modalities
+        }
+        return ds

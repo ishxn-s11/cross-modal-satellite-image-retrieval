@@ -1,0 +1,35 @@
+# BigEarthNet-MM example -- paired Sentinel-1 SAR / Sentinel-2 optical,
+# multi-label land-cover.
+#
+# Real data is NOT downloaded automatically. Download instructions and the
+# expected folder layout are documented in docs/datasets.md.
+#
+#   python run_pipeline.py --config configs/datasets/bigearthnet_mm.yaml
+
+dataset:
+  name: bigearthnet_mm
+  root: data/raw/bigearthnet_mm   # <- contains BigEarthNet-S1/ and BigEarthNet-S2/
+  image_size: 64
+  seed: 42
+  allow_fallback: true
+  bigearthnet_mm:
+    labels_csv: null               # <- path to BigEarthNet_19_labels.csv (required)
+    max_patches: 5000              # subsample cap for quick runs
+
+modalities:
+  - optical
+  - sar
+
+model:
+  backbone: resnet18
+  embedding_dim: 128
+  freeze_backbone: true
+
+training:
+  epochs: 6
+  batch_size: 64
+
+retrieval:
+  top_k: [5, 10]
+  gallery_fraction: 0.85
+  n_query: 400

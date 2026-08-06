@@ -74,14 +74,17 @@ class _AdaptConv2d(nn.Module):
     def _init_spectral(self, in_ch: int, modality: str) -> None:
         with torch.no_grad():
             w = torch.zeros((3, in_ch, 1, 1))
-            if modality == "multispectral":
+            if modality == "multispectral" and in_ch >= 3:
                 for slot, band in zip(range(3), ["R", "G", "B"]):
                     w[slot, _MS_TO_RGB[band], 0, 0] = 1.0
-            elif in_ch == 1:
-                w[:, 0, 0, 0] = 1.0  # replicate the single SAR channel
-            else:  # 3-channel -> identity
+            else:
+                # Map the available input channels onto the 3 RGB slots.
+                # 1 channel  -> replicate it to all slots.
+                # 2 channels (e.g. VV+VH) -> VV, VH, VH.
+                # >=3 channels -> first 3 channels identity.
                 for slot in range(3):
-                    w[slot, slot, 0, 0] = 1.0
+                    src = min(slot, in_ch - 1)
+                    w[slot, src, 0, 0] = 1.0
             self.conv.weight.copy_(w)
             self.conv.bias.copy_(torch.zeros(3))
 
@@ -100,6 +103,11 @@ def _unfreeze_blocks(net: nn.Module, stage: str) -> None:
                 p.requires_grad = True
 
 
+def _legacy_nbands(modality: str) -> int:
+    """Backward-compatible band counts for the built-in modalities."""
+    return 3 if modality == "optical" else (8 if modality == "multispectral" else 1)
+
+
 class ModalityAdaptiveEncoder(nn.Module):
     """Shared-embedding encoder: adapters + backbone + projection + classifier."""
 
@@ -112,15 +120,22 @@ class ModalityAdaptiveEncoder(nn.Module):
         n_classes: Optional[int] = None,
         freeze_backbone: bool = True,
         unfreeze_stage: str = "none",
+        modality_channels: Optional[Dict[str, int]] = None,
     ) -> None:
         super().__init__()
         self.modalities = list(modalities)
         feat_dim = BACKBONE_CATALOG[backbone]["feat_dim"]
+        # Real datasets may use non-default band counts (e.g. 2-band SAR,
+        # 13-band Sentinel-2). ``modality_channels`` lets the dataset drive the
+        # adapter sizes; when absent we fall back to the built-in 3/8/1 mapping.
+        self.modality_channels = dict(modality_channels or {})
+        if not self.modality_channels:
+            self.modality_channels = {m: _legacy_nbands(m) for m in self.modalities}
 
         # Per-modality input adapters.
         self.adapters = nn.ModuleDict()
         for m in self.modalities:
-            n_in = 3 if m == "optical" else (8 if m == "multispectral" else 1)
+            n_in = int(self.modality_channels.get(m, _legacy_nbands(m)))
             self.adapters[m] = _AdaptConv2d(n_in, modality=m)
 
         self.backbone = _build_backbone(backbone, pretrained)
@@ -161,6 +176,7 @@ def build_model(
     n_classes: Optional[int] = None,
     freeze_backbone: bool = True,
     unfreeze_stage: str = "none",
+    modality_channels: Optional[Dict[str, int]] = None,
 ) -> ModalityAdaptiveEncoder:
     return ModalityAdaptiveEncoder(
         modalities=modalities,
@@ -170,4 +186,5 @@ def build_model(
         n_classes=n_classes,
         freeze_backbone=freeze_backbone,
         unfreeze_stage=unfreeze_stage,
+        modality_channels=modality_channels,
     )
