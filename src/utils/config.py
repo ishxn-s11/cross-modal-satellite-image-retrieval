@@ -64,6 +64,30 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "gallery_fraction": 0.85,  # fraction of the *test* split used as gallery
         "n_query": 400,  # cap on number of queries evaluated (sampled)
     },
+    "preprocessing": {
+        # Modality-aware patch preprocessing (identity by default -> legacy behaviour).
+        "resize": None,        # int target spatial size, or null (keep native)
+        "cloud_max": None,     # drop images with cloud_cover > this (needs metadata)
+        "sar": {"log_transform": False, "clip_min": None, "clip_max": None,
+                "invalid_value": None, "invalid_fill": "zero",
+                "speckle_filter": "none", "speckle_window": 3},
+        "optical": {"clip_min": None, "clip_max": None,
+                    "invalid_value": None, "invalid_fill": "zero"},
+        "multispectral": {"band_selection": None, "missing_bands": "raise",
+                          "clip_min": None, "clip_max": None,
+                          "invalid_value": None, "invalid_fill": "zero"},
+    },
+    "augmentation": {
+        # Applied to the training set only, on the [0,1] scale. All augmentations
+        # preserve remote-sensing semantics (no arbitrary-angle rotation).
+        "enabled": False,
+        "random_crop": 0.0,     # fraction of the image cropped away (then resized back)
+        "hflip": False,
+        "vflip": False,
+        "rotation_90": False,   # random k*90 deg rotation
+        "noise_std": 0.0,       # gaussian noise std (on [0,1] scale)
+        "spectral_jitter": 0.0, # per-band multiplicative jitter (multispectral only)
+    },
     "evaluation": {
         "same_modal_pairs": [
             ["optical", "optical"],

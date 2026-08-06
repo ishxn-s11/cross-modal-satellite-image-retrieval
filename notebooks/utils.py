@@ -35,16 +35,28 @@ def load_pipeline(cfg_path: str = "configs/default.yaml", use_persistence: bool 
 
     Uses the persistent stores so gallery/embedding work hits disk on warm runs.
     """
-    from src.pipeline import build_loaders, load_best_model, prepare_dataset
+    from src.pipeline import (
+        build_loaders,
+        load_best_model,
+        modality_channels_from_patches,
+        prepare_dataset,
+    )
     from src.retrieval.engine import RetrievalEngine
     from src.utils.config import load_config
     from src.utils.io import Logger, resolve_device
 
     cfg = load_config(cfg_path)
     device = resolve_device(cfg["training"]["device"])
-    patches, labels, class_names, _stats, transforms = prepare_dataset(cfg, Logger(path=None))
-    model = load_best_model(cfg, len(class_names), device).to(device)
-    _, _, full_ds = build_loaders(cfg, patches, labels, transforms)
+    patches, labels, class_names, stats, transforms, metadata = prepare_dataset(cfg, Logger(path=None))
+    model = load_best_model(
+        cfg,
+        len(class_names),
+        device,
+        modality_channels=modality_channels_from_patches(patches, cfg["modalities"]),
+    ).to(device)
+    _, _, full_ds = build_loaders(
+        cfg, patches, labels, transforms, stats=stats, metadata=metadata
+    )
 
     store_kw = {}
     if use_persistence:
@@ -62,6 +74,7 @@ def load_pipeline(cfg_path: str = "configs/default.yaml", use_persistence: bool 
     return {
         "cfg": cfg, "patches": patches, "labels": labels, "class_names": class_names,
         "model": model, "full_ds": full_ds, "engine": engine, "device": device,
+        "metadata": metadata, "stats": stats,
     }
 
 
@@ -72,10 +85,13 @@ def load_dataset(cfg_path: str = "configs/default.yaml") -> dict:
     from src.utils.io import Logger
 
     cfg = load_config(cfg_path)
-    patches, labels, class_names, _stats, transforms = prepare_dataset(cfg, Logger(path=None))
-    _, _, full_ds = build_loaders(cfg, patches, labels, transforms)
+    patches, labels, class_names, stats, transforms, metadata = prepare_dataset(cfg, Logger(path=None))
+    _, _, full_ds = build_loaders(
+        cfg, patches, labels, transforms, stats=stats, metadata=metadata
+    )
     return {"cfg": cfg, "patches": patches, "labels": labels,
-            "class_names": class_names, "full_ds": full_ds}
+            "class_names": class_names, "full_ds": full_ds,
+            "metadata": metadata, "stats": stats}
 
 
 def gallery_split(pipeline: dict, fraction: float = 0.5, offset: int = 0):

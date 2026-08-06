@@ -25,6 +25,7 @@ from src.pipeline import (
     build_loaders,
     build_model_from_cfg,
     evaluate,
+    modality_channels_from_patches,
     prepare_dataset,
     train,
 )
@@ -48,12 +49,18 @@ def main() -> None:
     logger.info("config:\n" + pretty_print(cfg))
 
     t0 = time.perf_counter()
-    patches, labels, class_names, _stats, transforms = prepare_dataset(cfg, logger)
+    patches, labels, class_names, stats, transforms, metadata = prepare_dataset(cfg, logger)
 
-    model = build_model_from_cfg(cfg, len(class_names)).to(device)
+    model = build_model_from_cfg(
+        cfg,
+        len(class_names),
+        modality_channels=modality_channels_from_patches(patches, cfg["modalities"]),
+    ).to(device)
     logger.info(f"[model] backbone={cfg['model']['backbone']} embeddings={cfg['model']['embedding_dim']}")
 
-    train_dl, val_dl, full_ds = build_loaders(cfg, patches, labels, transforms)
+    train_dl, val_dl, full_ds = build_loaders(
+        cfg, patches, labels, transforms, stats=stats, metadata=metadata
+    )
     train(cfg, model, train_dl, val_dl, device, logger)
 
     rows, summary = evaluate(cfg, model, full_ds, device, logger)
