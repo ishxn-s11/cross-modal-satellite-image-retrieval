@@ -288,6 +288,10 @@ jupyter notebook notebooks/01_dataset_exploration.ipynb
 
 ## Web UI
 
+Two UIs are provided, both backed by the same `src/` pipeline + persistence.
+
+### FastAPI + SPA
+
 The web app (`api/app.py` + `web/index.html`) is backed by the persisted
 database and boots from cached galleries (warm start). It exposes five tabs:
 **Retrieve** (with a 🎲 random-query picker), **Browse DB**, **Upload** (query by
@@ -297,6 +301,21 @@ image file), **Metrics** (F1/P/R@K from the last evaluation) and **History**
 ```bash
 pip install -r requirements-web.txt
 uvicorn api.app:app --reload
+```
+
+### Streamlit
+
+`web/streamlit_app.py` is a fuller interactive dashboard (reusing the same
+pipeline): **Home**, **Retrieval** (dataset-id or upload), **Results** (ranked
+cards with similarity/metadata/geo distance), **Map** (interactive query +
+retrieved locations), **Analytics** (F1@5/10, P/R, per-pair table), **Embeddings**
+(PCA / t-SNE / UMAP by class or modality), **Explainability** (Grad-CAM / ViT
+attention), **Gallery** and **History**.
+
+```bash
+pip install -r requirements-web.txt
+streamlit run web/streamlit_app.py
+# RETRIEVAL_CONFIG=configs/datasets/sen12ms.yaml streamlit run web/streamlit_app.py
 ```
 
 ## Notes for scaling up
