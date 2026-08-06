@@ -53,6 +53,16 @@ training:
   device: auto
   train_ratio: 0.7
   val_ratio: 0.15
+  # Geographic / temporal alignment (needs metadata; off by default).
+  geo_weight: 0.0          # λ4 -- set > 0 to enable
+  geo_same_km: 5.0         # pairs within this distance are positives
+  geo_push_distant: false  # also push far-apart pairs away
+  geo_distant_km: 100.0
+  # Hard-negative mining (off by default). See docs/learning.md.
+  hard_negatives:
+    enabled: false
+    n_hard: 8
+    strategy: embedding
 
 retrieval:
   top_k: [5, 10]

@@ -58,6 +58,17 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "device": "auto",
         "train_ratio": 0.7,
         "val_ratio": 0.15,
+        # Geographic / temporal alignment (off by default; needs metadata).
+        "geo_weight": 0.0,
+        "geo_same_km": 5.0,       # pairs within this distance are positives
+        "geo_push_distant": False,
+        "geo_distant_km": 100.0,
+        # Hard-negative mining (off by default).
+        "hard_negatives": {
+            "enabled": False,
+            "n_hard": 8,
+            "strategy": "embedding",
+        },
     },
     "retrieval": {
         "top_k": [5, 10],
