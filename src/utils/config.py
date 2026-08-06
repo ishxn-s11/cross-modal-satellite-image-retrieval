@@ -203,14 +203,42 @@ def _coerce(value: str):
     return value
 
 
+# Environment variables that override config paths/settings (no secrets live
+# here; API keys and credentials should never be in the config or env map).
+ENV_CONFIG_OVERRIDES: Dict[str, str] = {
+    "RETRIEVAL_DATA_ROOT": "dataset.root",
+    "RETRIEVAL_DATASET": "dataset.name",
+    "RETRIEVAL_IMAGE_SIZE": "dataset.image_size",
+    "RETRIEVAL_MODEL_DIR": "outputs.model_dir",
+    "RETRIEVAL_OUTPUTS_DIR": "outputs.dir",
+    "RETRIEVAL_EMBEDDINGS_DIR": "persistence.embeddings_dir",
+    "RETRIEVAL_FAISS_DIR": "persistence.faiss_dir",
+    "RETRIEVAL_DATABASE_PATH": "persistence.database_path",
+    "RETRIEVAL_DEVICE": "training.device",
+    "RETRIEVAL_BACKBONE": "model.backbone",
+    "RETRIEVAL_EMBEDDING_DIM": "model.embedding_dim",
+}
+
+
+def apply_env_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    """Apply RETRIEVAL_* environment variables on top of a loaded config."""
+    for env_name, path in ENV_CONFIG_OVERRIDES.items():
+        value = os.environ.get(env_name)
+        if value is not None:
+            set_nested(config, path, _coerce(value))
+    return config
+
+
 def load_config(
     path: Optional[str] = None, overrides: Optional[List[str]] = None
 ) -> Dict[str, Any]:
-    """Load a YAML config over defaults, then apply ``k=v`` CLI overrides."""
+    """Load a YAML config over defaults, then env vars, then ``k=v`` CLI
+    overrides (CLI has the highest priority)."""
     config = deep_merge({}, DEFAULT_CONFIG)
     if path and os.path.exists(path):
         with open(path, "r", encoding="utf-8") as fh:
             config = deep_merge(config, yaml.safe_load(fh) or {})
+    config = apply_env_config(config)
     for ov in overrides or []:
         if "=" in ov:
             key, value = ov.split("=", 1)

@@ -25,11 +25,13 @@ from PIL import Image
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from fastapi import FastAPI, File, Form, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+
+from contextlib import asynccontextmanager
 
 from src.database import EmbeddingStore, IndexStore, MetadataStore, compute_cache_key
 from src.pipeline import (
@@ -45,7 +47,9 @@ from src.utils.io import Logger, resolve_device
 from src.utils.visualize import render_patch
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CONFIG_PATH = os.path.join(ROOT, "configs", "default.yaml")
+CONFIG_PATH = os.environ.get(
+    "RETRIEVAL_CONFIG", os.path.join(ROOT, "configs", "default.yaml")
+)
 WEB_DIR = os.path.join(ROOT, "web")
 
 app = FastAPI(title="Cross-Modal Satellite Image Retrieval")
@@ -63,6 +67,13 @@ class RetrieveRequest(BaseModel):
     k: int = 5
 
 
+class BatchRetrieveRequest(BaseModel):
+    query_ids: List[int]
+    query_modality: str = "optical"
+    gallery_modality: str = "sar"
+    k: int = 5
+
+
 class RetrieveResponse(BaseModel):
     query: dict
     retrieved: List[dict]
@@ -70,11 +81,34 @@ class RetrieveResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Startup: load dataset + model, build/reload galleries from the persistence
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _require_modality(modality: str, allowed) -> None:
+    if modality not in allowed:
+        raise HTTPException(status_code=400, detail=f"unknown modality '{modality}'; "
+                             f"choose from {sorted(allowed)}")
+
+
+def _require_query_id(qid: int) -> None:
+    if not (0 <= int(qid) < len(_state["labels"])):
+        raise HTTPException(status_code=404, detail=f"query id {qid} out of range")
+
+
+# ---------------------------------------------------------------------------
+# Lifespan: load dataset + model, build/reload galleries from the persistence
 # directories, and populate the SQLite metadata store.
 # ---------------------------------------------------------------------------
 
-@app.on_event("startup")
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    _startup()
+    yield
+
+
+app.router.lifespan_context = lifespan
+
+
 def _startup() -> None:
     cfg = load_config(CONFIG_PATH)
     device = resolve_device(cfg["training"]["device"])
@@ -180,6 +214,125 @@ def _index() -> str:
 
 
 # ---------------------------------------------------------------------------
+# Clean public endpoints (kept alongside the /api/* names for compatibility)
+# ---------------------------------------------------------------------------
+
+@app.get("/health")
+@app.get("/api/health")
+def _health() -> dict:
+    return {
+        "status": "ok",
+        "modalities": list(_state["cfg"]["modalities"]),
+        "gallery_size": int(_state["gallery_ids"].shape[0]),
+        "dataset": _state["cfg"]["dataset"].get("name"),
+    }
+
+
+@app.post("/predict", response_model=dict)
+def _predict(req: RetrieveRequest) -> dict:
+    """Predict the land-cover class of a dataset image in a given modality."""
+    _require_query_id(req.query_id)
+    _require_modality(req.query_modality, _state["cfg"]["modalities"])
+    engine = _state["engine"]
+    emb, _labels = engine.embed([req.query_id], req.query_modality)
+    class_names = _state["class_names"]
+    true_label = int(_state["labels"][req.query_id])
+    if _state["engine"].model.classifier is not None:
+        import torch
+
+        import torch.nn.functional as F
+
+        x = _state["full_ds"][req.query_id][req.query_modality][None]
+        with torch.no_grad():
+            logits = _state["engine"].model.classifier(
+                _state["engine"].model.embed(x.to(_state["device"]), req.query_modality,
+                                             normalize=True)
+            )
+        pred = int(logits.argmax(dim=1).item())
+        confidence = float(F.softmax(logits, dim=1).max().item())
+    else:
+        pred, confidence = true_label, None
+    return {
+        "image_id": req.query_id,
+        "modality": req.query_modality,
+        "predicted_class": class_names[pred],
+        "true_class": class_names[true_label],
+        "confidence": confidence,
+        "embedding_dim": int(emb.shape[1]),
+    }
+
+
+@app.post("/retrieve", response_model=RetrieveResponse)
+def _retrieve_clean(req: RetrieveRequest) -> RetrieveResponse:
+    """Alias for /api/retrieve with validation."""
+    _require_query_id(req.query_id)
+    _require_modality(req.query_modality, _state["cfg"]["modalities"])
+    _require_modality(req.gallery_modality, _state["cfg"]["modalities"])
+    return _retrieve(req)
+
+
+@app.post("/batch-retrieve", response_model=List[RetrieveResponse])
+def _batch_retrieve(req: BatchRetrieveRequest) -> List[RetrieveResponse]:
+    """Retrieve for several query ids in one request."""
+    if not req.query_ids:
+        raise HTTPException(status_code=400, detail="query_ids must not be empty")
+    for qid in req.query_ids:
+        _require_query_id(qid)
+    _require_modality(req.query_modality, _state["cfg"]["modalities"])
+    _require_modality(req.gallery_modality, _state["cfg"]["modalities"])
+    outs: List[RetrieveResponse] = []
+    for qid in req.query_ids:
+        outs.append(_retrieve(RetrieveRequest(
+            query_id=qid, query_modality=req.query_modality,
+            gallery_modality=req.gallery_modality, k=req.k,
+        )))
+    return outs
+
+
+@app.get("/gallery")
+def _gallery_clean(limit: int = 20) -> dict:
+    """Recent gallery metadata (alias for /api/gallery/info + dataset stats)."""
+    return {
+        "galleries": _state["metadata_store"].list_galleries(),
+        "dataset": {
+            "name": _state["cfg"]["dataset"].get("name"),
+            "n": int(_state["labels"].shape[0]),
+            "classes": _state["class_names"],
+        },
+    }
+
+
+@app.get("/metrics")
+def _metrics_clean() -> dict:
+    """Evaluation results (alias for /api/eval)."""
+    return _eval()
+
+
+@app.get("/history")
+def _history_clean(limit: int = 20) -> dict:
+    """Recent retrievals (alias for /api/history)."""
+    return _history(limit)
+
+
+@app.get("/model-info")
+def _model_info() -> dict:
+    m = _state["engine"].model
+    n_params = sum(p.numel() for p in m.parameters())
+    trainable = sum(p.numel() for p in m.parameters() if p.requires_grad)
+    return {
+        "backbone": _state["cfg"]["model"].get("backbone"),
+        "embedding_dim": _state["cfg"]["model"].get("embedding_dim"),
+        "projection_heads": _state["cfg"]["model"].get("projection_heads"),
+        "embedding_mode": _state["cfg"]["model"].get("embedding_mode"),
+        "modalities": list(_state["cfg"]["modalities"]),
+        "total_parameters": int(n_params),
+        "trainable_parameters": int(trainable),
+        "index": _state["cfg"]["retrieval"].get("index"),
+        "config_hash": _state["config_hash"],
+    }
+
+
+# ---------------------------------------------------------------------------
 # Status / database introspection
 # ---------------------------------------------------------------------------
 
@@ -257,6 +410,9 @@ def _dataset_stats() -> dict:
 
 @app.post("/api/retrieve", response_model=RetrieveResponse)
 def _retrieve(req: RetrieveRequest) -> RetrieveResponse:
+    _require_query_id(req.query_id)
+    _require_modality(req.query_modality, _state["cfg"]["modalities"])
+    _require_modality(req.gallery_modality, _state["cfg"]["modalities"])
     engine = _state["engine"]
     gallery = _state["galleries"][req.gallery_modality]
     result = engine.retrieve(gallery, [req.query_id], req.query_modality, k=req.k)
@@ -300,6 +456,8 @@ async def _retrieve_upload(
     k: int = Form(5),
 ) -> dict:
     """Retrieve against a gallery using an uploaded single/3-channel image."""
+    _require_modality(query_modality, _state["cfg"]["modalities"])
+    _require_modality(gallery_modality, _state["cfg"]["modalities"])
     data = await file.read()
     img = Image.open(io.BytesIO(data)).convert("L" if query_modality == "sar" else "RGB")
     size = int(_state["cfg"]["dataset"]["image_size"])

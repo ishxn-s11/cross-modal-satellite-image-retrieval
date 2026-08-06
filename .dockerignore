@@ -1,0 +1,30 @@
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# Virtual envs + caches
+.venv
+venv
+__pycache__
+*.pyc
+.pytest_cache
+.ipynb_checkpoints
+
+# Runtime artifacts (mounted as volumes)
+data/raw
+data/processed
+models/checkpoints
+models/best_model
+outputs
+embeddings/*.npz
+embeddings/*_meta.json
+faiss/*.index
+faiss/*_meta.json
+database/*.db*
+*.log
+
+# Large / non-essential
+notebooks
+docs
+tests
