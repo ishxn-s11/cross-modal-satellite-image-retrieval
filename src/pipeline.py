@@ -144,6 +144,7 @@ def build_model_from_cfg(
         image_size=int(image_size) if image_size else None,
         projection_heads=m_cfg.get("projection_heads", "shared"),
         foundation=m_cfg.get("foundation"),
+        embedding_mode=m_cfg.get("embedding_mode", "projected"),
     )
 
 
@@ -198,6 +199,31 @@ def evaluate(cfg: Dict, model, full_ds, device, logger) -> Tuple[List[Dict], Dic
     csv_path, json_path = save_report(rows, summary, out_dir)
     logger.info(f"[eval] report saved: {csv_path}")
     logger.info(f"[eval] summary saved: {json_path}")
+    return rows, summary
+
+
+def run_experiment(cfg: Dict, logger: Optional[Logger] = None) -> Tuple[List[Dict], Dict]:
+    """Train + evaluate a full config; returns (report rows, summary).
+
+    Used by the baseline / ablation harnesses so every experiment follows the
+    exact same code path as ``run_pipeline.py``.
+    """
+    from .utils.io import set_seed
+
+    logger = logger or Logger(path=None)
+    set_seed(int(cfg["dataset"]["seed"]))
+    device = resolve_device(cfg["training"]["device"])
+    patches, labels, class_names, stats, transforms, metadata = prepare_dataset(cfg, logger)
+    model = build_model_from_cfg(
+        cfg,
+        len(class_names),
+        modality_channels=modality_channels_from_patches(patches, cfg["modalities"]),
+    ).to(device)
+    train_dl, val_dl, full_ds = build_loaders(
+        cfg, patches, labels, transforms, stats=stats, metadata=metadata
+    )
+    train(cfg, model, train_dl, val_dl, device, logger)
+    rows, summary = evaluate(cfg, model, full_ds, device, logger)
     return rows, summary
 
 

@@ -112,6 +112,9 @@ def evaluate_retrieval_pairs(
         )
         label_counts = _gallery_label_counts(galleries[gm])
         for k in top_ks:
+            if k > result.k:
+                log(f"[eval] {qm}->{gm} k={k}: skipped (gallery smaller than {k})")
+                continue
             rel = result.relevant_mask()[:, :k]
             total_relevant = np.array(
                 [max(1, label_counts.get(int(l), 0)) for l in result.query_labels],

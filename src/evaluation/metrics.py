@@ -29,6 +29,8 @@ class RetrievalMetrics:
     precision_std: float
     recall_std: float
     f1_std: float
+    map: float = 0.0          # mean average precision @k
+    ndcg: float = 0.0         # normalized discounted cumulative gain @k
 
 
 def _per_query(
@@ -46,13 +48,59 @@ def _per_query(
     return {"precision": precision, "recall": recall, "f1": f1}
 
 
+def average_precision_at_k(relevant: np.ndarray, k: int) -> float:
+    """Average precision @k for a single query (0 if no relevant items)."""
+    row = relevant[:k]
+    n_rel = int(row.sum())
+    if n_rel == 0:
+        return 0.0
+    hits = np.cumsum(row)
+    precisions = hits / np.arange(1, k + 1)
+    return float((precisions * row).sum() / min(k, n_rel))
+
+
+def mean_average_precision(relevant: np.ndarray, k: int) -> float:
+    """mAP@k over a (Nq, k) boolean relevance matrix."""
+    if relevant.shape[0] == 0:
+        return 0.0
+    return float(np.mean([average_precision_at_k(row, k) for row in relevant]))
+
+
+def ndcg_at_k(relevant: np.ndarray, k: int) -> float:
+    """NDCG@k for a single query (binary gains), 0 if no relevant items."""
+    gains = relevant[:k].astype(np.float64)
+    dcg = float((gains / np.log2(np.arange(2, k + 2))).sum())
+    ideal = np.sort(gains)[::-1]
+    idcg = float((ideal / np.log2(np.arange(2, k + 2))).sum())
+    return dcg / idcg if idcg > 0 else 0.0
+
+
+def mean_ndcg(relevant: np.ndarray, k: int) -> float:
+    """Mean NDCG@k over a (Nq, k) boolean relevance matrix."""
+    if relevant.shape[0] == 0:
+        return 0.0
+    return float(np.mean([ndcg_at_k(row, k) for row in relevant]))
+
+
+def recall_curve(
+    relevant: np.ndarray, total_relevant: np.ndarray, max_k: int
+) -> Dict[int, float]:
+    """Recall@k for k = 1..max_k, averaged over queries."""
+    out: Dict[int, float] = {}
+    denom = np.maximum(total_relevant.astype(np.float64), 1e-8)
+    for k in range(1, int(max_k) + 1):
+        hits = relevant[:, :k].sum(axis=1).astype(np.float64)
+        out[k] = float((hits / denom).mean())
+    return out
+
+
 def retrieval_metrics(
     relevant: np.ndarray,
     total_relevant: np.ndarray,
     k: int,
     time_ms: np.ndarray,
 ) -> RetrievalMetrics:
-    """Aggregate P/R/F1 over all queries for a given cutoff K."""
+    """Aggregate P/R/F1/mAP/NDCG over all queries for a given cutoff K."""
     per = _per_query(relevant, total_relevant, k)
     return RetrievalMetrics(
         k=k,
@@ -64,6 +112,8 @@ def retrieval_metrics(
         f1_std=float(per["f1"].std()),
         avg_time_ms=float(time_ms.mean()),
         n_queries=int(relevant.shape[0]),
+        map=mean_average_precision(relevant, k),
+        ndcg=mean_ndcg(relevant, k),
     )
 
 
@@ -77,19 +127,21 @@ def to_dict(m: RetrievalMetrics, pair_desc: str = "", kind: str = "") -> Dict:
         "recall@k": round(m.recall, 4),
         "f1@k": round(m.f1, 4),
         "f1@k_std": round(m.f1_std, 4),
+        "map@k": round(m.map, 4),
+        "ndcg@k": round(m.ndcg, 4),
         "avg_retrieval_time_ms": round(m.avg_time_ms, 4),
     }
 
 
-_row_head = ["pair", "kind", "k", "f1@k", "precision@k", "recall@k", "avg_time_ms"]
+_row_head = ["pair", "kind", "k", "f1@k", "precision@k", "recall@k", "map@k", "ndcg@k", "avg_time_ms"]
 
 
 def format_table(rows: Sequence[Dict]) -> str:
     headers = _row_head
     lines = []
-    fmt = "{:<22}{:<7}{:>5}{:>10}{:>12}{:>12}{:>14}"
+    fmt = "{:<22}{:<7}{:>5}{:>10}{:>12}{:>12}{:>10}{:>10}{:>14}"
     lines.append(fmt.format(*headers))
-    lines.append("-" * 70)
+    lines.append("-" * 78)
     for r in rows:
         lines.append(
             fmt.format(
@@ -99,6 +151,8 @@ def format_table(rows: Sequence[Dict]) -> str:
                 r["f1@k"],
                 r["precision@k"],
                 r["recall@k"],
+                r["map@k"],
+                r["ndcg@k"],
                 r["avg_retrieval_time_ms"],
             )
         )

@@ -66,11 +66,19 @@ def save_checkpoint(model: torch.nn.Module, path: str, extra: Optional[Dict[str,
 def load_checkpoint(model: torch.nn.Module, path: str, device: torch.device) -> Dict[str, Any]:
     state = torch.load(path, map_location=device, weights_only=False)
     if "model" in state:  # checkpoints written by save_checkpoint
-        model.load_state_dict(state["model"])
+        sd = state["model"]
     elif "model_state_dict" in state:  # external/torchvision-style checkpoints
-        model.load_state_dict(state["model_state_dict"])
+        sd = state["model_state_dict"]
     else:
-        model.load_state_dict(state)
+        sd = state
+    try:
+        model.load_state_dict(sd)
+    except RuntimeError as exc:
+        raise RuntimeError(
+            f"checkpoint '{path}' does not match the model built for this config "
+            f"({exc}). Re-run training with this config (the cached checkpoint "
+            f"belongs to a different dataset/model), or fix the config."
+        ) from exc
     return state
 
 
