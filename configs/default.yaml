@@ -76,6 +76,24 @@ retrieval:
   gallery_fraction: 0.85
   n_query: 400
 
+  # Two-stage retrieval: FAISS returns candidate_k, optional re-ranker re-scores,
+  # top final_k returned. candidate_k: null -> single-stage (default).
+  candidate_k: null
+  rerank:
+    enabled: false          # identity | geo | mlp
+    method: geo
+    geo_weight: 0.3
+    scale_km: 50.0
+
+  # FAISS index type / similarity metric (see docs/retrieval.md).
+  index:
+    type: flat              # flat | ivf | hnsw | ivfpq
+    metric: cosine          # cosine | ip | euclidean
+    nlist: 32
+    m: 8
+    ef_search: 32
+    use_gpu: false
+
 # Modality-aware patch preprocessing (all identity by default -> legacy behaviour).
 # See docs/preprocessing.md for details and per-modality examples.
 preprocessing:

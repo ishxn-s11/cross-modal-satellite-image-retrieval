@@ -53,6 +53,12 @@ class MultiModalDataset(Dataset):
     def __len__(self) -> int:
         return int(self.labels.shape[0])
 
+    def metadata_for(self, image_id: int) -> ImageMetadata:
+        """Return metadata for a dataset id (or an all-None record)."""
+        if self.metadata is not None and 0 <= int(image_id) < len(self.metadata):
+            return self.metadata[int(image_id)]
+        return ImageMetadata(image_id=int(image_id))
+
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
         sample: Dict[str, torch.Tensor] = {}
         for m in self.modalities:

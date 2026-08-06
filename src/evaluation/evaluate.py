@@ -12,6 +12,8 @@ import numpy as np
 from ..data.dataset import MultiModalDataset
 from ..models.encoder import ModalityAdaptiveEncoder
 from ..retrieval.engine import Gallery, RetrievalEngine
+from ..retrieval.index import index_from_config
+from ..retrieval.rerank import build_reranker
 from ..utils.io import Logger, save_json
 from .metrics import RetrievalMetrics, format_table, retrieval_metrics, to_dict
 
@@ -63,6 +65,9 @@ def evaluate_retrieval_pairs(
     top_ks = [int(k) for k in retrieval_cfg.get("top_k", [5, 10])]
     gallery_frac = float(retrieval_cfg.get("gallery_fraction", 0.85))
     n_query_cap = int(retrieval_cfg.get("n_query", 400))
+    candidate_k = int(retrieval_cfg.get("candidate_k") or 0) or None
+    reranker = build_reranker(retrieval_cfg.get("rerank"))
+    index_kwargs = index_from_config(retrieval_cfg.get("index") or {})
 
     engine = RetrievalEngine(model, dataset, device)
     labels = dataset.labels
@@ -79,11 +84,13 @@ def evaluate_retrieval_pairs(
         f"[eval] gallery={len(gallery_ids)} query={len(query_ids)} "
         f"(classes={len(np.unique(labels))})"
     )
+    if reranker is not None:
+        log(f"[eval] re-ranking enabled: method={reranker.name} candidate_k={candidate_k}")
 
     # Build one gallery per gallery-modality, reused across pairs.
     galleries: Dict[str, Gallery] = {}
     for m in modalities:
-        galleries[m] = engine.build_gallery(gallery_ids, m)
+        galleries[m] = engine.build_gallery(gallery_ids, m, index_kwargs=index_kwargs)
         log(f"[eval] built gallery '{m}' ({galleries[m].size} items)")
 
     all_pairs: List[Pair] = [(q, g) for q, g in same_modal_pairs] + [
@@ -99,7 +106,10 @@ def evaluate_retrieval_pairs(
     for qm, gm in all_pairs:
         if (qm, gm) not in seen_kinds:
             continue
-        result = engine.retrieve(galleries[gm], query_ids, qm, k=max(top_ks))
+        result = engine.retrieve(
+            galleries[gm], query_ids, qm, k=max(top_ks),
+            candidate_k=candidate_k, reranker=reranker,
+        )
         label_counts = _gallery_label_counts(galleries[gm])
         for k in top_ks:
             rel = result.relevant_mask()[:, :k]
