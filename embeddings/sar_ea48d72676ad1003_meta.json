@@ -1,0 +1,8 @@
+{
+  "modality": "sar",
+  "config_hash": "ea48d72676ad1003",
+  "n": 6000,
+  "dim": 128,
+  "dtype": "float32",
+  "created_at": 1785866214.0235445
+}
