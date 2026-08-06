@@ -37,12 +37,20 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     },
     "modalities": ["optical", "multispectral", "sar"],
     "model": {
-        "backbone": "resnet18",
+        "backbone": "resnet18",  # resnet18 | resnet34 | resnet50 | vit_b_16 | satmae | prithvi
         "pretrained": True,
         "embedding_dim": 128,
         "freeze_backbone": True,
-        "unfreeze_stage": "stage4",  # "none" | "stage4" | "stage3"
+        "unfreeze_stage": "stage4",  # "none" | "stage4" | "stage3" (ViT: "last")
         "n_classes": 10,
+        "projection_heads": "shared",  # "shared" | "per_modality"
+        "vit_image_size": None,        # default = dataset.image_size
+        "vit_pretrained": True,
+        # Foundation-model checkpoints (optional, user-supplied, NOT bundled).
+        "foundation": {
+            "satmae": {"path": None, "feature_dim": 384},
+            "prithvi": {"path": None, "feature_dim": 768},
+        },
     },
     "training": {
         "epochs": 6,

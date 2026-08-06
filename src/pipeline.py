@@ -126,15 +126,24 @@ def build_model_from_cfg(
     modality_channels: Optional[Dict[str, int]] = None,
 ) -> ModalityAdaptiveEncoder:
     m_cfg = cfg["model"]
+    image_size = m_cfg.get("vit_image_size") or cfg.get("dataset", {}).get("image_size")
+    backbone = m_cfg.get("backbone", "resnet18")
+    if backbone in ("vit_b_16", "vit"):
+        pretrained = bool(m_cfg.get("vit_pretrained", m_cfg.get("pretrained", True)))
+    else:
+        pretrained = bool(m_cfg.get("pretrained", True))
     return build_model(
         modalities=cfg["modalities"],
-        backbone=m_cfg.get("backbone", "resnet18"),
-        pretrained=bool(m_cfg.get("pretrained", True)),
+        backbone=backbone,
+        pretrained=pretrained,
         embedding_dim=int(m_cfg.get("embedding_dim", 128)),
         n_classes=int(n_classes),
         freeze_backbone=bool(m_cfg.get("freeze_backbone", True)),
         unfreeze_stage=m_cfg.get("unfreeze_stage", "none"),
         modality_channels=modality_channels,
+        image_size=int(image_size) if image_size else None,
+        projection_heads=m_cfg.get("projection_heads", "shared"),
+        foundation=m_cfg.get("foundation"),
     )
 
 

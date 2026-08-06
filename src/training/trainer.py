@@ -21,7 +21,7 @@ def _model_outputs(
 ) -> Dict[str, torch.Tensor]:
     """Embedding (normalised) + optional classifier logits for one modality."""
     feat = model.encode_features(x, modality)
-    emb = F.normalize(model.projection(feat), dim=1)
+    emb = F.normalize(model.project(feat, modality), dim=1)
     out: Dict[str, torch.Tensor] = {"emb": emb}
     if model.classifier is not None:
         out["logits"] = model.classifier(emb)

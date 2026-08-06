@@ -33,11 +33,18 @@ modalities:
   - sar
 
 model:
-  backbone: resnet18
+  backbone: resnet18        # resnet18 | resnet34 | resnet50 | vit_b_16 | satmae | prithvi
   pretrained: true
   embedding_dim: 128
   freeze_backbone: true
-  unfreeze_stage: stage4    # none | stage4 | stage3 (fine-tune deepest block(s))
+  unfreeze_stage: stage4    # none | stage4 | stage3 (resnet); "last" (vit)
+  projection_heads: shared  # "shared" | "per_modality"
+  vit_image_size: null      # default = dataset.image_size (64)
+  vit_pretrained: true      # ImageNet weights with interpolated pos-embed
+  # Foundation models require a local checkpoint; they are NOT bundled.
+  # foundation:
+  #   satmae: {path: /path/to/satmae.pth, feature_dim: 384}
+  #   prithvi: {path: /path/to/prithvi.pth, feature_dim: 768}
 
 training:
   epochs: 6
