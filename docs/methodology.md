@@ -25,7 +25,9 @@ same land-cover semantics:
 
 All patches carry a ground-truth class (10 land-cover classes), used to define
 relevance for evaluation. A real-data path (EuroSAT) is provided for optical
-imagery; companion bands for it are simulated and clearly flagged.
+imagery; companion bands for it are simulated and clearly flagged. Real
+SEN12MS (SEN1-2), So2Sat LCZ42 and BigEarthNet-MM loaders are provided behind
+the unified `DatasetInterface` (see `docs/datasets.md`).
 
 ## Model: modality-adaptive encoder
 
@@ -56,6 +58,15 @@ FAISS `IndexFlatIP` over L2-normalised embeddings (inner product = cosine
 similarity). Flat exact search is used for gallery sizes seen here; switching to
 an IVF index scales to much larger galleries. Per-query search latency is
 measured at the FAISS step (<0.1 ms on the reference run).
+
+## Preprocessing & normalisation
+
+A configurable modality-aware pass (`docs/preprocessing.md`) handles SAR
+(log/clip/speckle/invalid values), optical (clip/cloud filter) and
+multispectral (band selection) before normalisation. Inputs are then mapped to
+the shared [0,1] axis and standardised per-channel. *(A latent defect that fed
+raw optical uint8 values against [0,1] statistics was fixed in Phase 3;
+optical inputs are now properly standardised.)*
 
 ## Evaluation
 
