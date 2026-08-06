@@ -2,3 +2,7 @@
 fastapi>=0.104
 uvicorn[standard]>=0.24
 python-multipart>=0.0.6
+
+# Streamlit UI (web/streamlit_app.py) -- run: streamlit run web/streamlit_app.py
+streamlit>=1.35
+plotly>=5.18
