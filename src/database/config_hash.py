@@ -34,6 +34,7 @@ def _config_material(cfg: Dict[str, Any]) -> Dict[str, Any]:
             "freeze_backbone": md.get("freeze_backbone"),
             "unfreeze_stage": md.get("unfreeze_stage"),
             "projection_heads": md.get("projection_heads"),
+            "embedding_mode": md.get("embedding_mode"),
             "vit_image_size": md.get("vit_image_size"),
             "foundation": md.get("foundation"),
         },

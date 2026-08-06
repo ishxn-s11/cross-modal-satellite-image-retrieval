@@ -320,10 +320,12 @@ class ModalityAdaptiveEncoder(nn.Module):
         image_size: Optional[int] = None,
         projection_heads: str = "shared",
         foundation: Optional[Dict] = None,
+        embedding_mode: str = "projected",
     ) -> None:
         super().__init__()
         self.modalities = list(modalities)
         self.projection_heads = projection_heads
+        self.embedding_mode = embedding_mode  # "projected" | "raw"
         # Real datasets may use non-default band counts (e.g. 2-band SAR).
         self.modality_channels = dict(modality_channels or {})
         if not self.modality_channels:
@@ -346,7 +348,10 @@ class ModalityAdaptiveEncoder(nn.Module):
         else:
             self.projection = self._make_projection(feat_dim, embedding_dim)
 
-        self.classifier = nn.Linear(embedding_dim, n_classes) if n_classes else None
+        # In "raw" embedding mode the (pretrained) backbone features are the
+        # embeddings, so the classifier reads the backbone dimension.
+        embed_out_dim = feat_dim if embedding_mode == "raw" else int(embedding_dim)
+        self.classifier = nn.Linear(embed_out_dim, n_classes) if n_classes else None
 
         self.freeze_backbone = freeze_backbone
         if freeze_backbone:
@@ -373,9 +378,12 @@ class ModalityAdaptiveEncoder(nn.Module):
         return self.backbone.forward_features(x)
 
     def embed(self, x: torch.Tensor, modality: str, normalize: bool = True) -> torch.Tensor:
-        """Projected embedding in the shared space."""
+        """Embedding in the shared space (projected or raw backbone features)."""
         feat = self.encode_features(x, modality)
-        e = self.project(feat, modality)
+        if self.embedding_mode == "raw":
+            e = feat
+        else:
+            e = self.project(feat, modality)
         if normalize:
             e = F.normalize(e, dim=1)
         return e
@@ -393,6 +401,7 @@ def build_model(
     image_size: Optional[int] = None,
     projection_heads: str = "shared",
     foundation: Optional[Dict] = None,
+    embedding_mode: str = "projected",
 ) -> ModalityAdaptiveEncoder:
     return ModalityAdaptiveEncoder(
         modalities=modalities,
@@ -406,4 +415,5 @@ def build_model(
         image_size=image_size,
         projection_heads=projection_heads,
         foundation=foundation,
+        embedding_mode=embedding_mode,
     )

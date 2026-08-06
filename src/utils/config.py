@@ -44,6 +44,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "unfreeze_stage": "stage4",  # "none" | "stage4" | "stage3" (ViT: "last")
         "n_classes": 10,
         "projection_heads": "shared",  # "shared" | "per_modality"
+        "embedding_mode": "projected", # "projected" | "raw" (raw = pretrained backbone features)
         "vit_image_size": None,        # default = dataset.image_size
         "vit_pretrained": True,
         # Foundation-model checkpoints (optional, user-supplied, NOT bundled).
@@ -215,6 +216,15 @@ def load_config(
             key, value = ov.split("=", 1)
             _set_dot_path(config, key.strip(), value.strip())
     return config
+
+
+def set_nested(config: Dict[str, Any], path: str, value: Any) -> None:
+    """Set ``config[path]`` by a dotted path (creates intermediate dicts)."""
+    keys = path.split(".")
+    node = config
+    for k in keys[:-1]:
+        node = node.setdefault(k, {})
+    node[keys[-1]] = value
 
 
 def pretty_print(config: Dict[str, Any]) -> str:

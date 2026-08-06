@@ -6,7 +6,6 @@ import os
 from typing import Dict, Sequence
 
 import torch
-import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
 from ..models.encoder import ModalityAdaptiveEncoder
@@ -20,8 +19,7 @@ def _model_outputs(
     modality: str,
 ) -> Dict[str, torch.Tensor]:
     """Embedding (normalised) + optional classifier logits for one modality."""
-    feat = model.encode_features(x, modality)
-    emb = F.normalize(model.project(feat, modality), dim=1)
+    emb = model.embed(x, modality, normalize=True)
     out: Dict[str, torch.Tensor] = {"emb": emb}
     if model.classifier is not None:
         out["logits"] = model.classifier(emb)
