@@ -8,6 +8,7 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
+from .metadata import ImageMetadata
 from .modalities import validate_modalities
 
 
@@ -17,6 +18,11 @@ class MultiModalDataset(Dataset):
     A single index ``i`` returns, for every requested modality, the image of
     patch ``i`` -- this is what makes the samples *paired* across modalities
     and enables cross-modal contrastive learning.
+
+    When ``metadata`` (a sequence of :class:`ImageMetadata`) is provided, the
+    returned sample also carries ``latitude`` / ``longitude`` / ``date`` fields
+    (floats, or NaN when missing) so geographic/temporal losses and evaluation
+    can be applied without extra plumbing.
     """
 
     def __init__(
@@ -25,13 +31,17 @@ class MultiModalDataset(Dataset):
         labels: np.ndarray,
         modalities: List[str],
         transforms: Optional[Dict[str, Callable[[np.ndarray], np.ndarray]]] = None,
+        metadata: Optional[List[ImageMetadata]] = None,
     ) -> None:
         validate_modalities(modalities)
         self.patches = patches
         self.labels = np.asarray(labels, dtype=np.int64)
         self.modalities = list(modalities)
         self.transforms = transforms or {}
+        self.metadata = list(metadata) if metadata is not None else None
         n = self.labels.shape[0]
+        if self.metadata is not None and len(self.metadata) != n:
+            raise ValueError(f"metadata length {len(self.metadata)} != n={n}")
         for m in self.modalities:
             if m not in patches:
                 raise KeyError(f"Dataset missing modality '{m}'")
@@ -52,6 +62,11 @@ class MultiModalDataset(Dataset):
             sample[m] = torch.from_numpy(np.ascontiguousarray(arr)).float()
         sample["label"] = torch.tensor(int(self.labels[idx]), dtype=torch.long)
         sample["index"] = torch.tensor(int(idx), dtype=torch.long)
+        if self.metadata is not None:
+            md = self.metadata[idx]
+            sample["latitude"] = torch.tensor(float(md.latitude if md.latitude is not None else float("nan")))
+            sample["longitude"] = torch.tensor(float(md.longitude if md.longitude is not None else float("nan")))
+            sample["date"] = torch.tensor(float(md.acquisition_date is not None), dtype=torch.float)
         return sample
 
 

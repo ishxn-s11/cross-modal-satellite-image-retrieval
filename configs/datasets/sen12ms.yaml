@@ -1,0 +1,43 @@
+# SEN12MS (SEN1-2) example -- paired Sentinel-1 SAR / Sentinel-2 optical.
+#
+# Real data is NOT downloaded automatically. Download instructions and the
+# expected folder layout are documented in docs/datasets.md. When the data
+# directory is absent this config falls back to the synthetic dataset
+# (dataset.allow_fallback: true).
+#
+#   python run_pipeline.py --config configs/datasets/sen12ms.yaml
+
+dataset:
+  name: sen12ms
+  root: data/raw/sen12ms      # <- point this at your SEN12MS download
+  image_size: 64
+  seed: 42
+  allow_fallback: true
+  # Select which aligned views the pipeline uses.
+  #   optical (S2 RGB composite, 3ch) / multispectral (S2 subset, default 8ch)
+  #   sar (S1 VV+VH, 2ch)
+  # sen12:
+  #   roi_csv: ROIs/ROIs1868_summer.csv   # optional; auto-detected otherwise
+  #   patch_size: 64
+  #   max_scenes: 200                     # cap scenes for a quick run
+  #   ms_bands: [1, 2, 3, 4, 5, 7, 8, 11]
+  #   sar_bands: [VV, VH]
+  #   class_names: null                   # optional 17-name legend override
+
+modalities:
+  - optical
+  - sar
+
+model:
+  backbone: resnet18
+  embedding_dim: 128
+  freeze_backbone: true
+
+training:
+  epochs: 6
+  batch_size: 64
+
+retrieval:
+  top_k: [5, 10]
+  gallery_fraction: 0.85
+  n_query: 400

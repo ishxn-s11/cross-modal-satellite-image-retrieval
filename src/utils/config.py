@@ -9,12 +9,31 @@ import yaml
 
 DEFAULT_CONFIG: Dict[str, Any] = {
     "dataset": {
-        "source": "synthetic",  # "synthetic" | "eurosat"
+        "name": "synthetic",  # synthetic | eurosat | sen12ms | so2sat | bigearthnet_mm
+        "source": "synthetic",  # legacy alias, kept for backward compatibility
+        "allow_fallback": True,  # fall back to synthetic when a real dataset is absent
         "root": "data/raw",
         "num_patches": 2000,
         "image_size": 64,
         "seed": 42,
         "eurosat_max_patches": 6000,  # subsample for real-data CPU runs
+        # Real-dataset options (see docs/datasets.md).
+        "sen12": {
+            "roi_csv": None,          # path (root-relative or absolute) to an ROI CSV
+            "patch_size": 64,         # crop size for the 256x256 scenes
+            "max_scenes": None,       # cap the number of scenes read
+            "ms_bands": [1, 2, 3, 4, 5, 7, 8, 11],  # S2 bands -> multispectral stack
+            "sar_bands": ["VV", "VH"],
+            "class_names": None,      # optional 17-name list override
+        },
+        "so2sat": {
+            "h5_file": "training.h5",  # training | validation | testing
+            "max_patches": None,       # subsample cap
+        },
+        "bigearthnet_mm": {
+            "labels_csv": None,        # path to BigEarthNet_19_labels.csv
+            "max_patches": None,       # subsample cap
+        },
     },
     "modalities": ["optical", "multispectral", "sar"],
     "model": {
@@ -73,14 +92,29 @@ DEFAULT_CONFIG: Dict[str, Any] = {
 }
 
 
+def _deepcopy(value: Any) -> Any:
+    """Copy a config value so merged output never aliases the input dicts.
+
+    (Without this, ``deep_merge({}, DEFAULT_CONFIG)`` would return a dict whose
+    nested ``dataset``/``model``/... dicts are *references* to the module-level
+    ``DEFAULT_CONFIG``, so later mutation of the merged result silently corrupts
+    the defaults.)
+    """
+    if isinstance(value, dict):
+        return {k: _deepcopy(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_deepcopy(v) for v in value]
+    return value
+
+
 def deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
-    """Recursively merge ``override`` on top of ``base``."""
+    """Recursively merge ``override`` on top of ``base`` (deep-copied)."""
     out = dict(base)
     for key, value in override.items():
         if isinstance(value, dict) and isinstance(out.get(key), dict):
             out[key] = deep_merge(out[key], value)
         else:
-            out[key] = value
+            out[key] = _deepcopy(value)
     return out
 
 

@@ -27,8 +27,11 @@ database/*.db
 database/*.db-*
 
 # Datasets
-data/raw/
-data/processed/
+data/raw/*
+data/processed/*
+# ... but keep the placeholder dirs themselves
+!data/raw/.gitkeep
+!data/processed/.gitkeep
 
 # Misc
 *.log

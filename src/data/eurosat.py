@@ -26,6 +26,7 @@ import pandas as pd
 import requests
 from PIL import Image
 
+from .interface import DatasetInterface, register_dataset
 from .modalities import validate_modalities
 
 EUROSAT_CLASS_NAMES: List[str] = [
@@ -167,3 +168,63 @@ def load_eurosat_multimodal(
         if "sar" in modalities:
             patches["sar"] = sim["sar"]
     return patches, labels, class_names
+
+
+# ---------------------------------------------------------------------------
+# DatasetInterface backend
+# ---------------------------------------------------------------------------
+
+# EuroSAT is real Sentinel-2 optical RGB. Multispectral / SAR companions are
+# derived from the real RGB patch with the same physical rendering models and
+# are flagged so reports stay honest about observed vs simulated bands.
+_EUROSAT_MODALITY_SENSOR = {
+    "optical": "Sentinel-2 (real RGB)",
+    "multispectral": "Sentinel-2 (derived from RGB)",
+    "sar": "Sentinel-1 (derived from RGB)",
+}
+
+
+@register_dataset("eurosat")
+class EuroSATDataset(DatasetInterface):
+    """Real Sentinel-2 optical (EuroSAT) with simulated companion modalities.
+
+    No geographic coordinates or acquisition dates are available in EuroSAT, so
+    metadata records carry ``None`` for those fields (nullable by design).
+    """
+
+    name = "eurosat"
+    dataset_id = "eurosat"
+    sensor = "Sentinel-2"
+    downloads_required = True  # downloads a ~90 MB public mirror on first use
+
+    @classmethod
+    def load(cls, cfg: Dict, logger=None) -> "EuroSATDataset":
+        from .metadata import metadata_from_arrays
+
+        ds_cfg = cfg.get("dataset", {})
+        modalities = list(cfg.get("modalities", ("optical",)))
+        patches, labels, class_names = load_eurosat_multimodal(
+            root=ds_cfg.get("root", "data/raw"),
+            image_size=int(ds_cfg.get("image_size", 64)),
+            max_patches=int(ds_cfg.get("eurosat_max_patches", 6000)),
+            seed=int(ds_cfg.get("seed", 42)),
+            modalities=modalities,
+        )
+        labels = np.asarray(labels, dtype=np.int64)
+        metadata = metadata_from_arrays(
+            image_id=np.arange(len(labels)),
+            class_names=class_names,
+            labels=labels,
+            dataset="eurosat",
+            sensor=cls.sensor,
+            modality="optical",
+            latitude=None,
+            longitude=None,
+            acquisition_date=None,
+            resolution=10.0,
+        )
+        ds = cls(patches, labels, class_names, metadata)
+        ds.modality_sensor = {
+            m: _EUROSAT_MODALITY_SENSOR.get(m, cls.sensor) for m in modalities
+        }
+        return ds

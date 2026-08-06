@@ -1,0 +1,9 @@
+# Optional dependencies for REAL remote-sensing datasets.
+# The default synthetic + EuroSAT flow does not need these.
+# Install only when you actually load SEN12MS / So2Sat LCZ42 / BigEarthNet-MM:
+#   pip install -r requirements-real-data.txt
+#
+#   tifffile  -- multi-band GeoTIFF reader (SEN12MS s1/s2/lulc, BigEarthNet-MM)
+#   h5py      -- HDF5 reader (So2Sat LCZ42 training/validation/testing .h5)
+tifffile>=2023.7
+h5py>=3.8

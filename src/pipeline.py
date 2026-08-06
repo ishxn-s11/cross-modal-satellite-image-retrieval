@@ -3,16 +3,15 @@
 from __future__ import annotations
 
 import os
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
 from torch.utils.data import DataLoader, Subset
 
 from .data.dataset import MultiModalDataset, collate_modalities
-from .data.eurosat import load_eurosat_multimodal
+from .data.interface import DatasetInterface, build_dataset
 from .data.preprocessing import build_transforms, compute_normalization_stats
-from .data.synthetic import CLASS_NAMES, load_or_generate_synthetic
 from .evaluation.evaluate import (
     evaluate_retrieval_pairs,
     save_report,
@@ -29,41 +28,24 @@ def prepare_dataset(
 ) -> Tuple[Dict, np.ndarray, List[str], Dict, Dict]:
     """Load/generate the multi-modal dataset and normalisation statistics.
 
+    Routes through :func:`build_dataset`, so ``cfg['dataset']['name']`` selects
+    any registered backend (synthetic, eurosat, sen12ms, so2sat,
+    bigearthnet_mm) with graceful fallback to synthetic when real data is
+    absent.
+
     Returns (patches {modality: (N,C,H,W)}, labels (N,), class_names,
-             stats, transforms).
+             stats, transforms) -- backward compatible with the original
+    5-tuple signature.
     """
-    ds_cfg = cfg["dataset"]
-    modalities = list(cfg["modalities"])
-    source = ds_cfg["source"]
-    root = ds_cfg["root"]
-    image_size = int(ds_cfg["image_size"])
-    seed = int(ds_cfg["seed"])
-
-    if source == "synthetic":
-        num_patches = int(ds_cfg.get("num_patches", 2000))
-        data, class_names = load_or_generate_synthetic(
-            root, num_patches, image_size, seed, modalities
-        )
-        labels = data["labels"]
-        patches = {m: data[m] for m in modalities}
-    elif source == "eurosat":
-        max_patches = int(ds_cfg.get("eurosat_max_patches", 6000))
-        patches, labels, class_names = load_eurosat_multimodal(
-            root,
-            image_size=image_size,
-            max_patches=max_patches,
-            seed=seed,
-            modalities=modalities,
-        )
-    else:
-        raise ValueError(f"Unknown dataset source '{source}'")
-
+    ds = build_dataset(cfg, logger)
+    patches, labels, class_names = ds.to_patches()
     labels = np.asarray(labels, dtype=np.int64)
     stats = compute_normalization_stats(patches)
     transforms = build_transforms(stats)
     logger.info(
-        f"[data] source={source} N={labels.shape[0]} classes={len(class_names)} "
-        f"modalities={modalities}"
+        f"[data] dataset={ds.dataset_id} N={labels.shape[0]} "
+        f"classes={len(class_names)} modalities={ds.modalities} "
+        f"has_metadata={ds.has_metadata()}"
     )
     return patches, labels, class_names, stats, transforms
 
@@ -73,12 +55,13 @@ def build_loaders(
     patches: Dict,
     labels,
     transforms: Dict,
+    metadata: Optional[List] = None,
 ) -> Tuple[DataLoader, DataLoader, MultiModalDataset]:
     modalities = list(cfg["modalities"])
     tr_cfg = cfg["training"]
     seed = int(cfg["dataset"]["seed"])
 
-    full_ds = MultiModalDataset(patches, labels, modalities, transforms)
+    full_ds = MultiModalDataset(patches, labels, modalities, transforms, metadata=metadata)
     train_ids, val_ids, _ = stratified_split(
         np.asarray(labels), float(tr_cfg["train_ratio"]), float(tr_cfg["val_ratio"]), seed
     )
@@ -95,7 +78,11 @@ def build_loaders(
     return train_dl, val_dl, full_ds
 
 
-def build_model_from_cfg(cfg: Dict, n_classes: int) -> ModalityAdaptiveEncoder:
+def build_model_from_cfg(
+    cfg: Dict,
+    n_classes: int,
+    modality_channels: Optional[Dict[str, int]] = None,
+) -> ModalityAdaptiveEncoder:
     m_cfg = cfg["model"]
     return build_model(
         modalities=cfg["modalities"],
@@ -105,7 +92,16 @@ def build_model_from_cfg(cfg: Dict, n_classes: int) -> ModalityAdaptiveEncoder:
         n_classes=int(n_classes),
         freeze_backbone=bool(m_cfg.get("freeze_backbone", True)),
         unfreeze_stage=m_cfg.get("unfreeze_stage", "none"),
+        modality_channels=modality_channels,
     )
+
+
+def modality_channels_from_dataset(
+    ds: DatasetInterface, modalities=None
+) -> Dict[str, int]:
+    """Band counts for each modality as reported by a dataset interface."""
+    mods = modalities or ds.modalities
+    return {m: int(ds.bands(m)) for m in mods}
 
 
 def train(cfg: Dict, model, train_dl, val_dl, device, logger) -> Dict:
