@@ -1,0 +1,67 @@
+# Cross-modal satellite image retrieval -- default configuration.
+# Override any value from the CLI:  python run_pipeline.py --config configs/default.yaml --set training.epochs=8
+
+dataset:
+  source: synthetic        # "synthetic" (self-contained) | "eurosat" (real RGB + simulated MS/SAR)
+  root: data/raw
+  num_patches: 6000
+  image_size: 64
+  seed: 42
+  eurosat_max_patches: 6000   # subsample used when source is "eurosat"
+
+modalities:
+  - optical
+  - multispectral
+  - sar
+
+model:
+  backbone: resnet18
+  pretrained: true
+  embedding_dim: 128
+  freeze_backbone: true
+  unfreeze_stage: stage4    # none | stage4 | stage3 (fine-tune deepest block(s))
+
+training:
+  epochs: 6
+  batch_size: 64
+  lr: 0.001
+  weight_decay: 0.0001
+  temperature: 0.07
+  clip_weight: 1.0
+  supcon_weight: 1.0
+  cls_weight: 1.0
+  num_workers: 0
+  patience: 3
+  device: auto
+  train_ratio: 0.7
+  val_ratio: 0.15
+
+retrieval:
+  top_k: [5, 10]
+  gallery_fraction: 0.85
+  n_query: 400
+
+evaluation:
+  same_modal_pairs:
+    - [optical, optical]
+    - [multispectral, multispectral]
+    - [sar, sar]
+  cross_modal_pairs:
+    - [optical, multispectral]
+    - [multispectral, optical]
+    - [optical, sar]
+    - [sar, optical]
+    - [multispectral, sar]
+    - [sar, multispectral]
+
+outputs:
+  dir: outputs
+  log_file: outputs/logs/pipeline.log
+
+# Persistent stores for embeddings, FAISS galleries and metadata.
+# On warm starts the pipeline / web app reload cached artefacts instead of
+# recomputing them (see src/database/).
+persistence:
+  embeddings_dir: embeddings
+  faiss_dir: faiss
+  database_path: database/metadata.db
