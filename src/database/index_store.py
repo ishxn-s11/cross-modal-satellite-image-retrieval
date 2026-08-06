@@ -64,8 +64,9 @@ class IndexStore:
             "indices_hash": _indices_hash(indices),
             "n": int(indices.shape[0]),
             "dim": int(gallery.index.dim),
-            "index_type": "ivf" if getattr(gallery.index, "ivf", False) else "flat",
-            "nlist": getattr(gallery.index.index, "nlist", None) if getattr(gallery.index, "ivf", False) else None,
+            "index_type": getattr(gallery.index, "index_type", "flat"),
+            "nlist": getattr(gallery.index, "nlist", None),
+            "index_config": gallery.index.to_config(),
             "indices": indices.tolist(),
             "labels": np.asarray(gallery.labels, dtype=np.int64).tolist(),
             "created_at": time.time(),
@@ -86,6 +87,18 @@ class IndexStore:
             meta = json.load(fh)
 
         index = FaissCosineIndex.load(str(index_path))
+        # Restore the index type / metric the gallery was built with.
+        cfg = meta.get("index_config") or {}
+        if cfg.get("index_type") and getattr(index, "index_type", None) != cfg.get("index_type"):
+            index.index_type = cfg["index_type"]
+        if cfg.get("metric"):
+            index.metric = cfg["metric"]
+        if cfg.get("m"):
+            index.m = int(cfg["m"])
+        if cfg.get("ef_search"):
+            index.ef_search = int(cfg["ef_search"])
+        index.nlist = int(meta.get("nlist") or 0)
+
         ids = np.asarray(meta["indices"], dtype=np.int64)
         labels = np.asarray(meta["labels"], dtype=np.int64)
         embeddings = self._reconstruct(index, meta)

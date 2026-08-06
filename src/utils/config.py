@@ -82,6 +82,24 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "top_k": [5, 10],
         "gallery_fraction": 0.85,  # fraction of the *test* split used as gallery
         "n_query": 400,  # cap on number of queries evaluated (sampled)
+        # Two-stage retrieval: FAISS returns candidate_k, an optional re-ranker
+        # re-scores and the top final_k are returned. candidate_k = null -> 1-stage.
+        "candidate_k": None,
+        "rerank": {
+            "enabled": False,
+            "method": "geo",   # identity | geo | mlp
+            "geo_weight": 0.3,
+            "scale_km": 50.0,
+        },
+        # FAISS index type / metric (see src/retrieval/index.py).
+        "index": {
+            "type": "flat",      # flat | ivf | hnsw | ivfpq
+            "metric": "cosine",  # cosine | ip | euclidean
+            "nlist": 32,
+            "m": 8,
+            "ef_search": 32,
+            "use_gpu": False,
+        },
     },
     "preprocessing": {
         # Modality-aware patch preprocessing (identity by default -> legacy behaviour).

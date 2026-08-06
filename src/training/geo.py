@@ -15,13 +15,17 @@ import torch
 
 
 def haversine_km(
-    lat1: torch.Tensor, lon1: torch.Tensor, lat2: torch.Tensor, lon2: torch.Tensor
+    lat1, lon1, lat2, lon2
 ) -> torch.Tensor:
-    """Great-circle distance in kilometres between two coordinate tensors.
+    """Great-circle distance in kilometres between two coordinates.
 
-    Inputs may be scalar or batched (broadcastable). Uses the standard
-    haversine formula with Earth radius 6371 km.
+    Inputs may be torch tensors or plain numbers (broadcastable). Uses the
+    standard haversine formula with Earth radius 6371 km.
     """
+    lat1 = torch.as_tensor(lat1, dtype=torch.float32)
+    lon1 = torch.as_tensor(lon1, dtype=torch.float32)
+    lat2 = torch.as_tensor(lat2, dtype=torch.float32)
+    lon2 = torch.as_tensor(lon2, dtype=torch.float32)
     R = 6371.0
     p1 = torch.deg2rad(lat1)
     p2 = torch.deg2rad(lat2)
