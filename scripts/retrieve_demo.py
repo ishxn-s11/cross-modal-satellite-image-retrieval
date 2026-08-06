@@ -12,7 +12,12 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-from src.pipeline import build_loaders, load_best_model, prepare_dataset
+from src.pipeline import (
+    build_loaders,
+    load_best_model,
+    modality_channels_from_patches,
+    prepare_dataset,
+)
 from src.retrieval.engine import RetrievalEngine
 from src.utils.config import load_config
 from src.utils.io import Logger, resolve_device
@@ -34,13 +39,20 @@ def main() -> None:
     device = resolve_device(cfg["training"]["device"])
     qm, gm = args.pair.split(",")
 
-    patches, labels, class_names, _s, transforms = prepare_dataset(cfg, logger)
-    model = load_best_model(cfg, len(class_names), device).to(device)
+    patches, labels, class_names, stats, transforms, metadata = prepare_dataset(cfg, logger)
+    model = load_best_model(
+        cfg,
+        len(class_names),
+        device,
+        modality_channels=modality_channels_from_patches(patches, cfg["modalities"]),
+    ).to(device)
     if args.best_model:
         from src.utils.io import load_checkpoint
 
         load_checkpoint(model, args.best_model, device)
-    _, _, full_ds = build_loaders(cfg, patches, labels, transforms)
+    _, _, full_ds = build_loaders(
+        cfg, patches, labels, transforms, stats=stats, metadata=metadata
+    )
     engine = RetrievalEngine(model, full_ds, device)
 
     # Gallery: reuse a chunk of the dataset; queries: a few distinct ids.

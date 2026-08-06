@@ -23,9 +23,11 @@ def main() -> None:
     set_seed(int(cfg["dataset"]["seed"]))
     device = resolve_device(cfg["training"]["device"])
 
-    patches, labels, class_names, _s, transforms = prepare_dataset(cfg, logger)
+    patches, labels, class_names, stats, transforms, metadata = prepare_dataset(cfg, logger)
     model = build_model_from_cfg(cfg, len(class_names)).to(device)
-    train_dl, val_dl, _full = build_loaders(cfg, patches, labels, transforms)
+    train_dl, val_dl, _full = build_loaders(
+        cfg, patches, labels, transforms, stats=stats, metadata=metadata
+    )
     result = train(cfg, model, train_dl, val_dl, device, logger)
     logger.info(f"[train] completed: {result}")
 

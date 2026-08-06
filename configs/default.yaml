@@ -59,6 +59,43 @@ retrieval:
   gallery_fraction: 0.85
   n_query: 400
 
+# Modality-aware patch preprocessing (all identity by default -> legacy behaviour).
+# See docs/preprocessing.md for details and per-modality examples.
+preprocessing:
+  resize: null            # int target spatial size, or null (keep native)
+  cloud_max: null         # drop images with cloud_cover > this (needs metadata)
+  sar:
+    log_transform: false  # apply log(1+x) before scaling
+    clip_min: null
+    clip_max: null
+    invalid_value: null   # scalar value (or "nan") treated as missing
+    invalid_fill: zero    # zero | median | nan_to_num
+    speckle_filter: none  # none | lee (edge-preserving speckle reduction)
+    speckle_window: 3
+  optical:
+    clip_min: null
+    clip_max: null
+    invalid_value: null
+    invalid_fill: zero
+  multispectral:
+    band_selection: null  # e.g. [0,1,2,4,5] to subset the band stack
+    missing_bands: raise  # raise | warn | drop
+    clip_min: null
+    clip_max: null
+    invalid_value: null
+    invalid_fill: zero
+
+# Remote-sensing-safe augmentation, applied to the TRAINING set only
+# (on the [0,1] scale). All settings at defaults -> augmentation disabled.
+augmentation:
+  enabled: false
+  random_crop: 0.0        # fraction of the image cropped away (then resized back)
+  hflip: false
+  vflip: false
+  rotation_90: false      # random k*90 deg rotation (semantics-preserving)
+  noise_std: 0.0          # gaussian noise std (on [0,1] scale)
+  spectral_jitter: 0.0    # per-band multiplicative jitter (multispectral only)
+
 evaluation:
   same_modal_pairs:
     - [optical, optical]

@@ -32,7 +32,13 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from src.database import EmbeddingStore, IndexStore, MetadataStore, compute_cache_key
-from src.pipeline import build_loaders, build_model_from_cfg, load_best_model, prepare_dataset
+from src.pipeline import (
+    build_loaders,
+    build_model_from_cfg,
+    load_best_model,
+    modality_channels_from_patches,
+    prepare_dataset,
+)
 from src.retrieval.engine import RetrievalEngine
 from src.utils.config import load_config
 from src.utils.io import Logger, resolve_device
@@ -83,9 +89,18 @@ def _startup() -> None:
     ckpt = os.path.join(cfg["outputs"]["model_dir"], "best_model", "model.pt")
     config_hash = compute_cache_key(cfg, ckpt)
 
-    patches, labels, class_names, _s, transforms = prepare_dataset(cfg, Logger(path=None))
-    model = load_best_model(cfg, len(class_names), device).to(device)
-    _, _, full_ds = build_loaders(cfg, patches, labels, transforms)
+    patches, labels, class_names, stats, transforms, metadata = prepare_dataset(
+        cfg, Logger(path=None)
+    )
+    model = load_best_model(
+        cfg,
+        len(class_names),
+        device,
+        modality_channels=modality_channels_from_patches(patches, cfg["modalities"]),
+    ).to(device)
+    _, _, full_ds = build_loaders(
+        cfg, patches, labels, transforms, stats=stats, metadata=metadata
+    )
     engine = RetrievalEngine(
         model, full_ds, device,
         embedding_store=embedding_store,
@@ -118,13 +133,21 @@ def _startup() -> None:
         )
         logger.info(f"[db] gallery '{m}': {galleries[m].size} vectors ready")
 
-    # Record image metadata (train/val/test splits) for the browse/dashboard.
+    # Record image metadata (train/val/test splits + geo/radiometric fields)
+    # for the browse/dashboard.
     from src.evaluation.evaluate import stratified_split
     tr_ids, val_ids, te_ids = stratified_split(labels, 0.7, 0.15, int(cfg["dataset"]["seed"]))
     split_of = np.full(int(labels.shape[0]), "test", dtype=object)
     split_of[tr_ids] = "train"
     split_of[val_ids] = "val"
-    metadata_store.save_images(labels, class_names, split_of.tolist())
+    metadata_store.save_images(labels, class_names, split_of.tolist(), metadata=metadata)
+    metadata_store.save_dataset(
+        name=cfg["dataset"].get("name", "synthetic"),
+        sensor=None,
+        n_images=int(labels.shape[0]),
+        n_classes=len(class_names),
+        modalities=list(cfg["modalities"]),
+    )
 
     _state.update(
         cfg=cfg,
@@ -132,6 +155,7 @@ def _startup() -> None:
         patches=patches,
         labels=labels,
         class_names=class_names,
+        metadata=metadata,
         full_ds=full_ds,
         engine=engine,
         galleries=galleries,

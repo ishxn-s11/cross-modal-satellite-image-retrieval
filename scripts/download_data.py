@@ -23,7 +23,7 @@ def main() -> None:
     cfg = load_config(args.config, overrides)
     logger = Logger()
     set_seed(int(cfg["dataset"]["seed"]))
-    patches, labels, class_names, _s, _t = prepare_dataset(cfg, logger)
+    patches, labels, class_names, _stats, _t, _metadata = prepare_dataset(cfg, logger)
     n = labels.shape[0]
     per_class = [int((labels == i).sum()) for i in range(len(class_names))]
     logger.info(f"[download] done: {n} patches, {len(class_names)} classes")

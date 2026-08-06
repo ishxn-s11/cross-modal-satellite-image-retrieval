@@ -43,9 +43,11 @@ def run() -> None:
     logger = Logger(cfg["outputs"]["log_file"])
     device = resolve_device(cfg["training"]["device"])
 
-    patches, labels, class_names, _s, transforms = prepare_dataset(cfg, logger)
+    patches, labels, class_names, stats, transforms, _metadata = prepare_dataset(cfg, logger)
     model = build_model_from_cfg(cfg, len(class_names)).to(device)
-    train_dl, val_dl, full_ds = build_loaders(cfg, patches, labels, transforms)
+    train_dl, val_dl, full_ds = build_loaders(
+        cfg, patches, labels, transforms, stats=stats
+    )
     train(cfg, model, train_dl, val_dl, device, logger)
 
     rows, summary = evaluate(cfg, model, full_ds, device, logger)
