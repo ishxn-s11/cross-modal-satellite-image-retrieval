@@ -1,0 +1,22 @@
+# Normalize line endings: check out in native form, store as LF in the repo.
+* text=auto
+
+# Source / config files: normalize to LF in the repo.
+*.py     text eol=lf
+*.yaml   text eol=lf
+*.yml    text eol=lf
+*.md     text eol=lf
+*.txt    text eol=lf
+*.json   text eol=lf
+*.html   text eol=lf
+*.css    text eol=lf
+*.js     text eol=lf
+
+# Binary / generated artifacts stay as-is.
+*.png    binary
+*.jpg    binary
+*.npz    binary
+*.index  binary
+*.pt     binary
+*.db     binary
+*.ipynb  text eol=lf
