@@ -69,7 +69,10 @@ python scripts/retrieve_demo.py --pair optical,sar --k 5   # save retrieval mont
 ## Dataset
 
 The task requires *"multi-sensor remote sensing image data consisting of two or
-more aligned or semantically associated modalities."* Two sources are supported.
+more aligned or semantically associated modalities."* Any dataset is selected
+with `dataset.name`; real datasets are **never auto-downloaded** (see
+[`docs/datasets.md`](docs/datasets.md) for download instructions, sizes and
+folder layouts). Two sources work out of the box:
 
 ### 1. Synthetic multi-sensor dataset (default, works offline)
 
@@ -202,6 +205,102 @@ raise the recall ceiling and therefore F1.
 
 ---
 
+## Training objectives
+
+The model is trained with a weighted combination (`docs/learning.md`):
+
+```
+Total = λ1·InfoNCE + λ2·SupCon + λ3·Classification + λ4·Geographic Alignment
+```
+
+* **InfoNCE** (CLIP-style) aligns the same patch across modalities.
+* **Supervised contrastive** clusters same-class patches regardless of sensor.
+* **Classification** CE on an auxiliary classifier.
+* **Geographic/temporal alignment** (off by default) keeps the same location
+  together across acquisition dates and optionally pushes distant scenes apart.
+* **Hard-negative mining** (off by default) restricts the contrastive
+  denominator to the most confusable negatives.
+
+All advanced objectives are independently switchable; the default config
+reproduces the reference results exactly.
+
+## Preprocessing & augmentation
+
+`docs/preprocessing.md` documents the modality-aware pipeline:
+
+* **SAR** — log1p transform, clipping, edge-preserving Lee speckle filter,
+  invalid-value repair, numerical stability.
+* **Optical** — clipping, invalid-pixel repair, cloud-cover filtering
+  (metadata-based).
+* **Multispectral** — configurable band selection with missing-band validation.
+* **Augmentation** (training only, remote-sensing-safe): random crop, flips,
+  k·90° rotation, gaussian noise, per-band spectral jitter (multispectral).
+
+## Evaluation & benchmarks
+
+Beyond P/R/F1@K every pair is reported with **mAP@K and NDCG@K**
+(`docs/benchmarks.md`). Reproducible harnesses are provided:
+
+* `scripts/benchmark_latency.py` — preprocessing/embedding/search/rerank/total
+  with mean/P50/P95 + throughput.
+* `scripts/benchmark_scalability.py` — flat/ivf/hnsw/ivfpq × 10K/100K/1M
+  vectors (recall vs exact, latency, estimated memory).
+* `scripts/benchmark_baselines.py` — ResNet+cosine, ResNet+InfoNCE,
+  ResNet+InfoNCE+SupCon, ViT+contrastive, foundation (if configured), proposed.
+* `scripts/run_ablations.py` — one-axis sweeps (encoder / dim / loss /
+  hard-negatives / re-rank / geo) → CSV/JSON.
+
+Only measured results are reported; variants that cannot run are recorded as
+*skipped*.
+
+## Explainability & visualisation
+
+`docs/xai.md` — Grad-CAM for CNN encoders and ViT self-attention maps, with a
+saliency-overlay demo (`scripts/xai_demo.py`), plus PCA / t-SNE / UMAP embedding
+projections including a before-vs-after-training comparison
+(`scripts/visualize_embeddings.py`).
+
+## API & Docker
+
+`docs/api.md` — clean FastAPI endpoints (`/health`, `/predict`, `/retrieve`,
+`/batch-retrieve`, `/metrics`, `/history`, `/model-info` — the original
+`/api/*` names remain), `RETRIEVAL_*` environment-variable configuration, and a
+`Dockerfile`.
+
+## Limitations
+
+* The reference results use the **synthetic** dataset; real-data runs need the
+  user to download SEN12MS / So2Sat / BigEarthNet-MM (loaders are
+  fixture-tested, not validated against a live download in CI).
+* Foundation models (SatMAE / Prithvi) require a user-supplied checkpoint.
+* GPU (CUDA + GPU-FAISS) is optional and auto-detected; everything runs on CPU.
+* Land-cover relevance is used as ground truth — retrieval quality is bounded
+  by how well the class labels reflect semantic similarity.
+
+## Future scope
+
+* Location-identity retrieval (exact-scene matching) on top of the geo metadata.
+* Temporal evaluation across acquisition seasons (the geo-alignment loss
+  already trains for it).
+* Learned re-ranking at larger scale and online FAISS index updates.
+* Multi-frame Prithvi temporal encoders once a compatible checkpoint is wired.
+
+## Citation / references
+
+If you use or extend this project:
+
+* **Problem statement**: Bharatiya Antariksh Hackathon, Problem Statement 11 —
+  *Cross-Modal Satellite Image Retrieval Using Multi-Sensor Remote Sensing Data*.
+* **SEN12MS**: Schmitt, Hughes & Zhu, "The SEN12MS dataset for Remote Sensing
+  Applications", IEEE TGRS 2019.
+* **So2Sat LCZ42**: Zhu et al., "So2Sat LCZ42: A Benchmark Data Set for the
+  Classification of Global Local Climate Zones", IEEE GRSM 2020.
+* **BigEarthNet-MM**: Sumbul et al., "BigEarthNet-MM", IEEE GRSM 2021.
+* **EuroSAT**: Helber et al., "EuroSAT", IEEE GRSL 2019.
+* **CLIP / InfoNCE**: Radford et al. (2021) / Oord et al. (2018);
+  **SupCon**: Khosla et al. (2020); **Grad-CAM**: Selvaraju et al. (2017);
+  **SatMAE**: Cong et al. (2022); **Prithvi**: Jakubik et al. (2023).
+
 ## Configuration
 
 All settings live in `configs/default.yaml`. Override anything from the CLI:
@@ -226,22 +325,28 @@ Key switches:
 ## Project layout
 
 ```
-configs/          YAML configs (default.yaml)
-src/data/         modalities, synthetic + EuroSAT generators, dataset, preprocessing
-src/models/       modality-adaptive encoder + projection head
-src/training/     contrastive losses + trainer
-src/retrieval/    FAISS index + retrieval engine (persistence-aware)
+configs/          YAML configs (default.yaml + configs/datasets/*.yaml examples)
+data/             raw/ processed/ metadata/ labels/ (placeholders; real data user-supplied)
+src/data/         modalities, dataset interface + backends, metadata, preprocessing, augmentation
+src/models/       encoder adapters (ResNet/ViT/foundation), projection heads
+src/training/     contrastive losses, hard negatives, geo/temporal losses, trainer
+src/retrieval/    FAISS index types, retrieval engine, re-rankers, result records
 src/database/     persistent stores: SQLite metadata, embedding cache, FAISS gallery store
-src/evaluation/   P/R/F1@K metrics + evaluation harness
-src/pipeline.py   end-to-end orchestration
-scripts/          CLI entry points (train / evaluate / retrieve_demo / download)
-tests/            unit + end-to-end smoke tests
-api/  web/        FastAPI demo + web UI (Retrieve / Browse / Upload / Metrics / History)
+src/evaluation/   P/R/F1/mAP/NDCG metrics, latency/scalability/baseline/ablation harnesses
+src/xai/          Grad-CAM + ViT attention (explainability)
+src/utils/        config (YAML + env), io/logging, embedding visualization
+src/pipeline.py   end-to-end orchestration (run_experiment)
+scripts/          train / evaluate / retrieve_demo / download + 4 benchmark/ablation scripts
+tests/            pytest suite (87 tests: data, preproc, encoders, losses, retrieval, metrics, API, XAI)
+api/  web/        FastAPI app (api/app.py) + SPA (web/index.html) + Streamlit (web/streamlit_app.py)
 notebooks/        5 Jupyter notebooks (exploration, embeddings, retrieval, FAISS, persistence)
 database/         SQLite metadata store (runtime-generated, git-ignored)
 embeddings/       cached full-dataset embeddings per modality (runtime-generated)
 faiss/            persisted per-modality FAISS galleries (runtime-generated)
 outputs/          metrics, reports, retrieved images, logs
+docs/             datasets, preprocessing, models, learning, retrieval, benchmarks, xai, api, diagrams
+Dockerfile        API deployment image
+LICENSE           MIT
 ```
 
 ---
