@@ -175,21 +175,25 @@ Full pipeline: 2,000 patches, 10 land-cover classes, ResNet-18 backbone
 (with the deepest block fine-tuned), 128-D embeddings, 6 epochs
 (`configs/default.yaml`). Evaluated on a held-out query/gallery split.
 
+These numbers were regenerated after the Phase 3 input-normalisation fix
+(optical is now scaled to the [0,1] axis before standardising, which improved
+cross-modal retrieval).
+
 | Metric (mean over queries) | Value |
 |---|---|
-| Same-modal F1@5 / F1@10  | 0.172 / 0.287 |
-| Cross-modal F1@5 / F1@10 | 0.116 / 0.196 |
-| Cross-weighted F1@5 / F1@10 | 0.139 / 0.232 |
-| Avg. retrieval time / query | **0.05 ms** |
+| Same-modal F1@5 / F1@10  | 0.180 / 0.290 |
+| Cross-modal F1@5 / F1@10 | 0.125 / 0.209 |
+| Cross-weighted F1@5 / F1@10 | 0.147 / 0.241 |
+| Avg. retrieval time / query | **0.11 ms** |
 
 Per-pair detail (best pairs):
 
 | Query → Gallery | F1@5 | F1@10 |
 |---|---|---|
-| multispectral → multispectral | 0.221 | 0.350 |
-| optical → multispectral | 0.177 | 0.301 |
-| multispectral → optical | 0.203 | 0.332 |
-| optical → optical | 0.180 | 0.300 |
+| multispectral → multispectral | 0.230 | 0.368 |
+| multispectral → optical | 0.227 | 0.340 |
+| optical → multispectral | 0.177 | 0.299 |
+| optical → optical | 0.182 | 0.293 |
 
 Cross-modal optical↔multispectral retrieval is competitive with same-modal
 retrieval; SAR↔optical is lower, reflecting the limited discriminative content

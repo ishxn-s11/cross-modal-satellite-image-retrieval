@@ -42,6 +42,13 @@ def _losses_from_batch(
         embeddings[m] = out["emb"]
         if "logits" in out:
             logits[m] = out["logits"]
+    # Optional geographic alignment (only when the dataset provides coords).
+    geo = None
+    if float(loss_cfg.get("geo_weight", 0.0)) > 0 and "latitude" in batch:
+        geo = {
+            "lat": batch["latitude"].to(device),
+            "lon": batch["longitude"].to(device),
+        }
     return multimodal_losses(
         embeddings,
         logits,
@@ -51,6 +58,12 @@ def _losses_from_batch(
         clip_weight=float(loss_cfg.get("clip_weight", 1.0)),
         supcon_weight=float(loss_cfg.get("supcon_weight", 1.0)),
         cls_weight=float(loss_cfg.get("cls_weight", 1.0)),
+        geo_weight=float(loss_cfg.get("geo_weight", 0.0)),
+        geo=geo,
+        geo_same_km=float(loss_cfg.get("geo_same_km", 5.0)),
+        geo_push_distant=bool(loss_cfg.get("geo_push_distant", False)),
+        geo_distant_km=float(loss_cfg.get("geo_distant_km", 100.0)),
+        hard_negatives=loss_cfg.get("hard_negatives"),
     )
 
 
@@ -82,7 +95,7 @@ def train_epoch(
     loss_cfg: Dict,
 ) -> Dict[str, float]:
     model.train()
-    totals = {"total": 0.0, "clip": 0.0, "supcon": 0.0, "cls": 0.0}
+    totals = {"total": 0.0, "clip": 0.0, "supcon": 0.0, "cls": 0.0, "geo": 0.0}
     n = 0
     for batch in loader:
         losses = _losses_from_batch(model, batch, modalities, device, loss_cfg)
@@ -104,7 +117,7 @@ def evaluate(
     loss_cfg: Dict,
 ) -> Dict[str, float]:
     model.eval()
-    totals = {"total": 0.0, "clip": 0.0, "supcon": 0.0, "cls": 0.0}
+    totals = {"total": 0.0, "clip": 0.0, "supcon": 0.0, "cls": 0.0, "geo": 0.0}
     n = 0
     acc, n_acc = 0.0, 0
     with torch.no_grad():
